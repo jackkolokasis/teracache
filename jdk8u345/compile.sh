@@ -30,8 +30,8 @@ BGREEN=${ESC}${BOLD}';'${GREEN_FG}'m'
 BYELLOW=${ESC}${BOLD}';'${YELLOW_FG}'m'
 RESET=${ESC}${NORMAL}'m'
 
-CC=gcc-7.2.0
-CXX=g++-7.2.0
+CC=/usr/bin/gcc
+CXX=/usr/bin/g++
 
 function usage()
 {
