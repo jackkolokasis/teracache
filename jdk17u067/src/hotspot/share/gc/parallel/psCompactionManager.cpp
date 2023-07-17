@@ -141,6 +141,7 @@ ParCompactionManager*
 ParCompactionManager::gc_thread_compaction_manager(uint index) {
   assert(index < ParallelGCThreads, "index out of range");
   assert(_manager_array != NULL, "Sanity");
+  _manager_array[index]->worker_id = index;
   return _manager_array[index];
 }
 

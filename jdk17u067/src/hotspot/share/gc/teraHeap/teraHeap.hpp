@@ -299,6 +299,47 @@ public:
   // Check if the group of regions in H2 is enabled
   bool is_h2_group_enabled();
 
+  // Wrapper function for increment_ref_counter
+  // file: project_dir/allocator/include/segment.h
+  void increment_region_rc(HeapWord* obj, unsigned worker_id);
+
+  // Wrapper function for get_ref_counter_sum
+  // file: project_dir/allocator/include/segment.h
+  long unsigned get_region_rc(struct region* reg);
+
+  // Wrapper function for get_region_metadata
+  // file: project_dir/allocator/include/segment.h
+  struct region* get_region_meta(char* obj);
+
+  //prints ref_counters and destination addresses for
+  //all regions that are not empty
+  //Wrapper function for print_regions_metadata
+  // file: project_dir/allocator/include/segment.h
+  void h2_print_reg_metadata(FILE* stream);
+
+  //returns the N most underpopulated regions
+  //Argument: the max amount of regions that will be returned
+  //Wrapper for get_underpopulated_regions
+  // file: project_dir/allocator/include/segment.h
+  struct underpopulated_regions* get_underpopulated_regs(unsigned region_amount);
+
+  //sets the destination address of the region
+  //Argument: the region and the new destination address
+  //Wrapper for set_destination_address
+  // file: project_dir/allocator/include/segment.h
+  void set_destination_addr(struct region* reg, uint64_t new_addr);
+
+  //returns region size
+  //Wrapper for region_size
+  // file: project_dir/allocator/include/segment.h
+  uint64_t get_region_size();
+
+  //returns the objects offser from the start of the region
+  //Argument: the address of the object
+  //Wrapper for calculate_obj_offset
+  // file: project_dir/allocator/include/segment.h
+  uint64_t h2_get_offset(char* obj);
+
 #ifdef TERA_TIMERS
   // Tera timers maintains timers for the different phases of the
   // major GC

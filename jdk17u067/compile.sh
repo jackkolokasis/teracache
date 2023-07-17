@@ -1,10 +1,8 @@
-#!/usr/bin/env bash
-
 ###################################################
 #
 # file: compile.sh
 #
-# @Author:   Iacovos G. Kolokasis
+# Iacovos G. Kolokasis
 # @Version:  07-03-2021 
 # @email:    kolokasis@ics.forth.gr
 #
@@ -28,15 +26,14 @@ function usage()
 
     exit 1
 }
-  
 # Compile without debug symbols
 function release() 
 {
   make dist-clean
   bash ./configure \
     --with-jobs="$(nproc)" \
-    --with-extra-cflags="-O3 -I/~/teraheap/allocator/include -I/~/teraheap/allocator/include" \
-    --with-extra-cxxflags="-O3 -I/~/teraheap/allocator/include -I/~/teraheap/allocator/include" \
+    --with-extra-cflags="-O3 -I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include" \
+    --with-extra-cxxflags="-O3 -I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include" \
     --with-target-bits=64
   
   intercept-build make
@@ -49,7 +46,7 @@ function release()
 # Compile with debug symbols and assertions
 function debug_symbols_on() 
 {
-	export LD_LIBRARY_PATH=/home/kolokasis/github/teraheap/allocator/lib:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=/home1/public/konstdelis/teraheap/allocator/lib:$LD_LIBRARY_PATH
 
   make dist-clean
   bash ./configure \
@@ -57,8 +54,8 @@ function debug_symbols_on()
     --with-native-debug-symbols=internal \
     --with-target-bits=64 \
     --with-jobs="$(nproc)" \
-    --with-extra-cflags="-I/home/kolokasis/github/teraheap/allocator/include -I/home/kolokasis/github/teraheap/allocator/include" \
-    --with-extra-cxxflags="-I/home/kolokasis/github/teraheap/allocator/include -I/home/kolokasis/github/teraheap/allocator/include"
+    --with-extra-cflags="-I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include" \
+    --with-extra-cxxflags="-I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include"
 
   intercept-build make
   cd ../ 
@@ -77,7 +74,7 @@ export_env_vars()
 {
 	local PROJECT_DIR="$(pwd)/.."
 
-	export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+	export JAVA_HOME="/home1/public/konstdelis/jvm/jdk17/build/linux-x86_64-server-release/jdk"
 
 	### TeraHeap Allocator
 	export LIBRARY_PATH=${PROJECT_DIR}/allocator/lib:$LIBRARY_PATH
@@ -85,7 +82,14 @@ export_env_vars()
 	export PATH=${PROJECT_DIR}/allocator/include:$PATH
 	export C_INCLUDE_PATH=${PROJECT_DIR}/allocator/include:$C_INCLUDE_PATH                                                                                         
 	export CPLUS_INCLUDE_PATH=${PROJECT_DIR}/allocator/include:$CPLUS_INCLUDE_PATH
+
+	export LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LIBRARY_PATH
+	export LD_LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LD_LIBRARY_PATH                                                                                           
+	export PATH=${PROJECT_DIR}/tera_malloc/include:$PATH
+	export C_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$C_INCLUDE_PATH                                                                                         
+	export CPLUS_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$CPLUS_INCLUDE_PATH
 }
+
 
 while getopts ":drcmh" opt
 do
@@ -114,4 +118,3 @@ do
       ;;
   esac
 done
-

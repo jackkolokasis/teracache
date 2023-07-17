@@ -95,9 +95,9 @@
 //#define TERA_TIMERS             //< Enable timers for performance
                                   //analysis
 
-//#define TERA_STATS                //< Statistics for objects in H2
+#define TERA_STATS                //< Statistics for objects in H2
 
-//#define OBJ_STATS                 //< Take object statistics about
+#define OBJ_STATS                 //< Take object statistics about
                                   //primitive types and non primitive
                                   //types. This work with TERA_STATS
 

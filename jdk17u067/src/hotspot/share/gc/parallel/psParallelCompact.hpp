@@ -521,6 +521,12 @@ public:
     return calc_new_pointer(cast_from_oop<HeapWord*>(p), cm);
   }
 
+  HeapWord* h2_calc_new_pointer(HeapWord* addr) const;
+
+  HeapWord* h2_calc_new_pointer(oop p) const{
+    return h2_calc_new_pointer(cast_from_oop<HeapWord*>(p));
+  }
+
 #ifdef  ASSERT
   void verify_clear(const PSVirtualSpace* vspace);
   void verify_clear();
@@ -1151,9 +1157,11 @@ class PSParallelCompact : AllStatic {
   static void precompact_h2_candidate_objects();
 #endif
 
+  static void h2_adjust_new_top(struct underpopulated_regions* uregions);
+  static void set_up_h2_regions(SpaceId id, struct underpopulated_regions* uregions);
   static void summarize_spaces_quick();
   static void summarize_space(SpaceId id, bool maximum_compaction);
-  static void summary_phase(ParCompactionManager* cm, bool maximum_compaction);
+  static void summary_phase(ParCompactionManager* cm, bool maximum_compaction, struct underpopulated_regions* uregions);
 
 #ifdef TERA_MAJOR_GC
   // Adjust the references of H2 candidate objects and then move them

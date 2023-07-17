@@ -145,6 +145,7 @@ inline void ParCompactionManager::mark_and_push(T* p) {
 
     if (EnableTeraHeap && Universe::teraHeap()->is_obj_in_h2(obj)) {
       Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(obj));
+      Universe::teraHeap()->increment_region_rc(cast_from_oop<HeapWord*>(obj), this->worker_id);
 #ifdef TERA_STATS
       if (TeraHeapStatistics)
         increase_fwd_ptrs();
@@ -169,6 +170,7 @@ inline void ParCompactionManager::mark_and_push(T* p) {
     if (mark_bitmap()->is_unmarked(obj) && PSParallelCompact::mark_obj(obj)) {
       push(obj);
     }
+
   }
 }
 
@@ -181,6 +183,7 @@ inline void ParCompactionManager::mark_and_push(T* p) {
     oop obj = CompressedOops::decode_not_null(heap_oop);
 
     assert(ParallelScavengeHeap::heap()->is_in(obj), "should be in heap");
+
 
     if (mark_bitmap()->is_unmarked(obj) && PSParallelCompact::mark_obj(obj)) {
       push(obj);

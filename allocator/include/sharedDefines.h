@@ -6,10 +6,10 @@
 #include <string.h>
 #include <stdio.h>
 
-#define DEV "/mnt/fmap/file.txt"	     //< Device name
+#define DEV "/tmp/nvme/file.txt"	     //< Device name
 #define DEV_SIZE (700*1024LU*1024*1024)  //< Device size (in bytes)
 
-//#define ASSERT
+#define ASSERT
 
 #ifdef ASSERT
 #define clean_errno() (errno == 0 ? "None" : strerror(errno))
@@ -27,7 +27,7 @@
 
 #define MALLOC_ON	1				  //< Allocate buffers dynamically
 
-#define REGION_SIZE	(16*1024LU*1024) //< Region size (in bytes) for allignment
+#define REGION_SIZE	(256*1024LU*1024) //< Region size (in bytes) for allignment
 									                    // version
 
 #if ANONYMOUS
