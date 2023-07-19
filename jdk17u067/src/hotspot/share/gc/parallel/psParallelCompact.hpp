@@ -1091,6 +1091,8 @@ class PSParallelCompact : AllStatic {
   static void pre_compact();
   static void post_compact();
 
+  static void move_h2_regions(struct underpopulated_regions* uregions);
+
   // Mark live objects
   static void marking_phase(ParCompactionManager* cm,
                             bool maximum_heap_compaction,

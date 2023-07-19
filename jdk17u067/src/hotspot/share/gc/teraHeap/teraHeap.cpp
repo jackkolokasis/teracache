@@ -515,8 +515,16 @@ uint64_t TeraHeap::h2_get_region_partId(void* p) {
 }
 
 // Marks the region containing obj as used
-void TeraHeap::mark_used_region(HeapWord *obj) {
-    mark_used((char *) obj);
+void TeraHeap::mark_used_region(HeapWord *obj, size_t thread_worker_no) {
+  mark_used((char *) obj);
+  increment_region_rc(obj, thread_worker_no);
+
+  if (H2LivenessAnalysis)
+    cast_to_oop(obj)->set_live();
+}
+
+void TeraHeap::mark_used_region_no_increment(HeapWord *obj) {
+  mark_used((char *) obj);
 
   if (H2LivenessAnalysis)
     cast_to_oop(obj)->set_live();
@@ -666,6 +674,21 @@ long unsigned TeraHeap::get_region_rc(struct region* reg){
 // file: project_dir/allocator/include/segment.h
 struct region* TeraHeap::get_region_meta(char* obj){
 	return get_region_metadata(obj);
+}
+
+// checks that ref counters have been reset
+void TeraHeap::validate_rc_reset(){
+  check_if_ref_reset();
+}
+
+// returns the H2 region number
+size_t TeraHeap::get_region_number(char* obj){
+  return get_region_index(obj);
+}
+
+// Returns the file descriptor of the nvme file
+int TeraHeap::get_h2_fd(){
+  return allocator_get_fd();
 }
 
 //prints ref_counters and destination addresses for

@@ -202,7 +202,10 @@ public:
   void h2_reset_used_field(void);
 
   // Marks the region containing obj as used
-  void mark_used_region(HeapWord *obj);
+  void mark_used_region(HeapWord *obj, size_t thread_worker_no);
+
+  // Marks the region containing obj as used without incrementing the ref counter
+  void mark_used_region_no_increment(HeapWord *obj);
 
   // Prints all active regions
   void print_h2_active_regions(void);
@@ -310,6 +313,15 @@ public:
   // Wrapper function for get_region_metadata
   // file: project_dir/allocator/include/segment.h
   struct region* get_region_meta(char* obj);
+
+  // checks that ref counters have been reset
+  void validate_rc_reset();
+
+  // returns the H2 region number
+  size_t get_region_number(char* obj);
+
+  // Returns the file descriptor of the nvme file
+  int get_h2_fd();
 
   //prints ref_counters and destination addresses for
   //all regions that are not empty

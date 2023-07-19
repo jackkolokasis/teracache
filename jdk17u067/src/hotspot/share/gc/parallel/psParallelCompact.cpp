@@ -91,7 +91,9 @@
 
 #include <math.h>
 
-#define UREGIONS_SIZE 4
+#define UREGIONS_SIZE 1
+
+long unsigned test_check_refs = 0;
  
 // All sizes are in HeapWords.
 const size_t ParallelCompactData::Log2RegionSize  = 16; // 64K words
@@ -1021,10 +1023,14 @@ HeapWord* ParallelCompactData::calc_new_pointer(HeapWord* addr, ParCompactionMan
 HeapWord* ParallelCompactData::h2_calc_new_pointer(HeapWord* addr) const {
   struct region* h2_obj_region = Universe::teraHeap()->get_region_meta((char*)addr);
   uint64_t obj_offset = Universe::teraHeap()->h2_get_offset((char*)addr);
+
   assert(h2_obj_region && h2_obj_region->destination_address, "Object should not be moved/has no destination address");
+  
   HeapWord* result;
-  result = (HeapWord*) (h2_obj_region->destination_address +obj_offset);
-  return addr; // !!! Change this to result after completion !!! 
+  result = (HeapWord*) ((char*)h2_obj_region->destination_address +obj_offset);
+
+  test_check_refs++;
+  return result; // !!! Change this to result after completion !!! 
 }
 
 #ifdef ASSERT
@@ -1059,7 +1065,8 @@ PSParallelCompact::IsAliveClosure PSParallelCompact::_is_alive_closure;
 bool PSParallelCompact::IsAliveClosure::do_object_b(oop p) { 
   //return (EnableTeraHeap && Universe::teraHeap()->is_obj_in_h2(p)) ? true : mark_bitmap()->is_marked(p); 
 if (EnableTeraHeap && Universe::teraHeap()->is_obj_in_h2(p)) {
-    Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(p));
+    fprintf(stderr, "PSPARCOM: do_obj: Got worker id = %li\n", ParCompactionManager::get_vmthread_cm()->get_worker_id());
+    Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(p), 0);
     return true;
   } else {
   return mark_bitmap()->is_marked(p); 
@@ -1089,7 +1096,8 @@ public:
 
 #ifdef TERA_MAJOR_GC
     if (EnableTeraHeap && Universe::teraHeap()->is_obj_in_h2(referent)) {
-      Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(referent));
+      fprintf(stderr, "PCREFPRO: discover: Got worker id = %li\n", ParCompactionManager::get_vmthread_cm()->get_worker_id());
+      Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(referent), ParCompactionManager::get_vmthread_cm()->get_worker_id());
       return true;
     }
 #endif
@@ -1310,6 +1318,29 @@ void PSParallelCompact::post_compact()
 
   // Signal that we have completed a visit to all live objects.
   Universe::heap()->record_whole_heap_examined_timestamp();
+}
+
+void PSParallelCompact::move_h2_regions(struct underpopulated_regions* uregions){
+  if(!uregions->size) return; 
+
+  size_t REGION_SIZE = Universe::teraHeap()->get_region_size();
+  void* BUFFER = malloc(REGION_SIZE * sizeof(char));
+
+  for(size_t i=0; i<uregions->size; i++){
+    struct region* curr_reg = uregions->move_regions_list[i];
+    __off_t offset = (__off_t)(curr_reg->start_address - fd);
+      fprintf(stderr, "\n|-|-|-|-|-|-| Reading Region |-|-|-|-|-|-|\n");
+    ssize_t read_rt = pread(Universe::teraHeap()->get_h2_fd(), BUFFER, REGION_SIZE, offset);
+    if(read_rt < 0){
+      fprintf(stderr, "ERROR: I/O (pread) to nvme device failed: pread returned %ld\n", read_rt);
+    }
+      fprintf(stderr, "\nPread returned %ld\n", read_rt);
+      fprintf(stderr, "\n|=|=|=|=|=|=| Copying Region |=|=|=|=|=|=|\n");
+    memcpy((void*)curr_reg->destination_address, BUFFER, REGION_SIZE);
+      fprintf(stderr, "\n_____________ DONE! _____________ \n\n");
+  }
+
+  free(BUFFER);
 }
 
 HeapWord*
@@ -1843,32 +1874,30 @@ PSParallelCompact::summarize_space(SpaceId id, bool maximum_compaction)
 
 void PSParallelCompact::set_up_h2_regions(SpaceId id, struct underpopulated_regions* uregions){
   /*Get new top*/
-  BREAKPOINT;
+  fprintf(stderr, "\n____Summary Phase (assigning dest_addrs)____\n");
   HeapWord* const np = _space_info[id].new_top();
-  size_t reg_size = Universe::teraHeap()->get_region_size();
+  size_t reg_size = Universe::teraHeap()->get_region_size(); //HeapWord* aligned to 8 words
   fprintf(stderr, "psParallelCompact: old top is %p || region size = %" PRIu64 "\n", np, reg_size);
-
-  fprintf(stderr, "Sizeof(HeapWord*)=%d, Sizeof(char*)=%d\n", sizeof(HeapWord*), sizeof(char*));
 
   /*Iterate through the underused regions and assign destination addresses*/
   for(size_t i=0; i<uregions->size; i++){
-    if( (char*)(np+(i*reg_size)) > (char*)_space_info[eden_space_id].space()->bottom()){
+    if( (np+(i*reg_size/8)) > _space_info[eden_space_id].space()->bottom()){
       fprintf(stderr, "New dest_addr would be %p, but eden top is %p\n", np+(i*reg_size), _space_info[eden_space_id].space()->bottom());
       fprintf(stderr, "Not enough space to fit all h2 regions, %lu will be moved to H1\n", i);
       uregions->size = i; //to ensure that the new top pointer will be calculated correctly
       break;
     }
     
-    Universe::teraHeap()->set_destination_addr(uregions->move_regions_list[i], (uint64_t)np+(i*reg_size));
+    Universe::teraHeap()->set_destination_addr(uregions->move_regions_list[i], (uint64_t)(np+(i*reg_size/8)));
+    uregions->move_regions_list[i]->move_flg = 1;
     
     /*--Debugging--*/
-    fprintf(stderr, "Selected region with ref = %-10lu | new destination_address = %p\n", 
+    fprintf(stderr, "Selected region (no %lu) with ref = %-10lu | new destination_address = %p\n", 
+        Universe::teraHeap()->get_region_number(uregions->move_regions_list[i]->start_address),
         Universe::teraHeap()->get_region_rc(uregions->move_regions_list[i]), 
         (char*)uregions->move_regions_list[i]->destination_address);
 
     if(i!=0){
-      fprintf(stderr, "Diff from previous is %" PRIu64 "\n", 
-          uregions->move_regions_list[i]->destination_address - uregions->move_regions_list[i-1]->destination_address);
       assert(uregions->move_regions_list[i]->destination_address - uregions->move_regions_list[i-1]->destination_address == reg_size,
           "Diffrenece between regions' destination address is not equal to REGION_SIZE");
     }
@@ -1876,10 +1905,10 @@ void PSParallelCompact::set_up_h2_regions(SpaceId id, struct underpopulated_regi
 }
 
 void PSParallelCompact::h2_adjust_new_top(struct underpopulated_regions* uregions){
-  fprintf(stderr, "--------After Post Compaction--------\n\n");
+  fprintf(stderr, "\n____After Post Compaction____\n");
     
   //get REGION_SIZE from allocator
-  uint64_t REGION_SIZE = Universe::teraHeap()->get_region_size();
+  size_t REGION_SIZE = Universe::teraHeap()->get_region_size();
 
   //get old top | set to the new top | get new top
   HeapWord* old_top = _space_info[old_space_id].new_top();
@@ -1892,15 +1921,19 @@ void PSParallelCompact::h2_adjust_new_top(struct underpopulated_regions* uregion
   /*--Debugging--*/
   fprintf(stderr, "uregions->size = %lu\n", uregions->size);
   if(uregions->size){
-    fprintf(stderr, "\nDiff of new_new_top from old_new_top %" PRIu64 " || old_new_top == %p\n", 
-          (uint64_t)(new_top - (int64_t)old_top), old_top);
-    int64_t prev = uregions->move_regions_list[uregions->size - 1]->destination_address;
-    fprintf(stderr, "Diff of new_new_top from last regions dest_addr %" PRIu64 " || last dest_addr == %p\n", 
-          (uint64_t)(new_top - prev), (HeapWord*)prev);
+    fprintf(stderr, "\nDiff of new_new_top from old_new_top %lu || old_new_top == %p\n", 
+          (size_t)new_top - (size_t)old_top, old_top);
+    size_t prev = (size_t)uregions->move_regions_list[uregions->size - 1]->destination_address;
+    fprintf(stderr, "Diff of new_new_top from last regions dest_addr %lu || last dest_addr == %p\n", 
+          (size_t)new_top - prev, (HeapWord*)prev);
+    assert((size_t)new_top - (size_t)old_top == REGION_SIZE * uregions->size,
+      "Byte difference between old_new_top and new_new_top is not as expected");
+    assert((size_t)new_top - prev == REGION_SIZE,
+      "Byte difference between new_new_top and last set destination address is not REGION_SIZE");
   }
 
   fprintf(stderr, "\nThe new_new_pointer is at the end of gc cycle: %p\n", _space_info[old_space_id].new_top());
-  fprintf(stderr, "=================================GC_CYCLE_COMPLETE=================================\n\n");
+  fprintf(stderr, "=====================================GC_CYCLE_COMPLETE=====================================\n\n");
 }
 
 #ifndef PRODUCT
@@ -2030,7 +2063,6 @@ void PSParallelCompact::summary_phase(ParCompactionManager* cm,
 
   //Set destination addresses for for the regions that will be moved
   set_up_h2_regions(old_space_id, uregions);
-  fprintf(stderr, "\n---End of summary phase | old top pointer is %p\n\n", _space_info[old_space_id].new_top_addr());
 
   log_develop_trace(gc, compaction)("Summary_phase:  after final summarization");
   NOT_PRODUCT(print_region_ranges());
@@ -2081,6 +2113,7 @@ void PSParallelCompact::invoke(bool maximum_heap_compaction) {
 bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction) {
   assert(SafepointSynchronize::is_at_safepoint(), "must be at a safepoint");
   assert(ref_processor() != NULL, "Sanity");
+  test_check_refs=0;
 
   if (GCLocker::check_active_before_gc()) {
     return false;
@@ -2164,6 +2197,8 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction) {
     }
 #endif // TERA_MAJOR_GC
 
+    Universe::teraHeap()->validate_rc_reset();
+
     bool marked_for_unloading = false;
 
     marking_start.update();
@@ -2201,19 +2236,28 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction) {
     // adjust_roots() updates Universe::_intArrayKlassObj which is
     // needed by the compaction for filling holes in the dense prefix.
     adjust_roots();
-
+    fprintf(stderr, "\n----------Adjusted Roots----------\n\n");
     compaction_start.update();
     compact();
-
+    fprintf(stderr, "\n----------Compaction Complete----------\n\n");
     ParCompactionManager::verify_all_region_stack_empty();
+
+    // Move marked H2 regions to H1 heap
+    move_h2_regions(uregions);
 
     // Reset the mark bitmap, summary data, and do other bookkeeping.  Must be
     // done before resizing.
     post_compact();
 
-
+    fprintf(stderr, "\nTotal h2 reference pointers adjusted: %lu\n\n", test_check_refs);
     // Set the new top pointer for the old space to point to and of the moved H2 regions
     h2_adjust_new_top(uregions);
+    test_check_refs=0;
+
+    for(size_t region = 0; region<uregions->size; region++){
+      uregions->move_regions_list[region]->move_flg = 0;
+      uregions->move_regions_list[region]->destination_address = 0;
+    }
 
 #ifdef TERA_MAJOR_GC
     if (EnableTeraHeap) {

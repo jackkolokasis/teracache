@@ -63,7 +63,7 @@ public:
     oop obj = *p;
 #ifdef TERA_MAJOR_GC
     if (EnableTeraHeap && obj != NULL && Universe::teraHeap()->is_obj_in_h2(obj)) {
-      Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(obj));
+      Universe::teraHeap()->mark_used_region_no_increment(cast_from_oop<HeapWord *>(obj));
     }
 #endif
     if (obj == NULL) {

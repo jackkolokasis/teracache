@@ -51,6 +51,7 @@ struct region{
     struct group *dependency_list;
     long unsigned ref_counter[8];
     uint64_t destination_address;
+    bool move_flg;
 #if ANONYMOUS
   struct offset *offset_list;
   size_t size_mapped; 
@@ -132,6 +133,16 @@ void references(char *obj1, char *obj2);
  * Returns the size of the region
  */
 uint64_t region_size();
+
+/*
+ * Returns the index of the region of the object
+ */
+size_t get_region_index(char* obj);
+
+/*
+ * Used for debugging, checks that all ref counters are 0
+ */
+void check_if_ref_reset();
 
 /*
  * Sums the ref_counter array  of a region and returns it
@@ -217,6 +228,11 @@ long total_used_regions();
  * Prints all the used regions
  */
 void print_used_regions();
+
+/*
+ * Returns the file descriptor of nvme file.txt
+ */
+int allocator_get_fd();
 
 /*
  * Checks if address of obj is before last object

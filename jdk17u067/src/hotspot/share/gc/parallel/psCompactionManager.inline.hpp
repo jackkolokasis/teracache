@@ -144,8 +144,8 @@ inline void ParCompactionManager::mark_and_push(T* p) {
 #endif
 
     if (EnableTeraHeap && Universe::teraHeap()->is_obj_in_h2(obj)) {
-      Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(obj));
-      Universe::teraHeap()->increment_region_rc(cast_from_oop<HeapWord*>(obj), this->worker_id);
+      Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(obj), get_worker_id());
+
 #ifdef TERA_STATS
       if (TeraHeapStatistics)
         increase_fwd_ptrs();

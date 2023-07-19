@@ -74,7 +74,7 @@ class ParCompactionManager : public CHeapObj<mtGC> {
   uint64_t                      _h2_group_id = 0;
   uint64_t                      _h2_part_id = 0;
   size_t                        _h2_candidate_obj_size = 0;
-  size_t			worker_id;
+  size_t			                  worker_id;
   // Locate the objects that pop from stack and start scanning its
   // references. If this object has no reference fields then we
   // increase the statistics.
@@ -175,6 +175,7 @@ class ParCompactionManager : public CHeapObj<mtGC> {
     _next_shadow_region += workers;
     return next_shadow_region();
   }
+  inline size_t  get_worker_id(){return worker_id;}
 
   void reset_bitmap_query_cache() {
     _last_query_beg = NULL;

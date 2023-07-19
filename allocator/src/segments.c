@@ -34,7 +34,7 @@ void init_regions(){
 #if DEBUG_PRINT 
   fprintf(stderr, "Total num of regions:%d\n", (int32_t) REGION_ARRAY_SIZE);
 #endif
-
+  fprintf(stderr, "\nReseting region array\n\n");
   for (i = 0; i < REGION_ARRAY_SIZE ; i++) {
     region_array[i].start_address             = (i == 0) ? start_addr_mem_pool() : (region_array[i - 1].start_address + (uint64_t) REGION_SIZE);
     region_array[i].used                      = 0;
@@ -43,8 +43,9 @@ void init_regions(){
     region_array[i].first_allocated_start     = NULL;
     region_array[i].dependency_list           = NULL;
     region_array[i].destination_address       = 0;
+    region_array[i].move_flg                  = 0;
     for(size_t j=0; j<WORKER_THREADS_NUM; j++){
-	region_array[i].ref_counter[j] = 0;
+	    region_array[i].ref_counter[j] = 0;
     }
 #if ANONYMOUS
     region_array[i].size_mapped               = 0;
@@ -432,8 +433,13 @@ void print_groups(){
  */
 void reset_used(){
     int32_t i;
-    for (i = 0 ; i < REGION_ARRAY_SIZE ; i++)
+    for (i = 0 ; i < REGION_ARRAY_SIZE ; i++){
         region_array[i].used = 0;
+
+        for(size_t j=0; j<WORKER_THREADS_NUM; j++){
+	        region_array[i].ref_counter[j] = 0;
+        }
+    }
 }
 
 /*
@@ -630,6 +636,7 @@ struct region* get_region_metadata(char *obj){
  */
 void set_destination_address(struct region* reg, uint64_t destination_address){
 		assertf(reg, "region pointer passed to set_destination_address is Null");
+  
 	reg->destination_address = destination_address;
 }
 
@@ -652,8 +659,34 @@ void print_regions_metadata(FILE* stream){
     for(size_t j=0; j<WORKER_THREADS_NUM; j++){
       fprintf(stream, "\tThread Worker ref_counter: %ld\n", reg.ref_counter[j]);
     }    
-    fprintf(stream, "Destination address: %"PRIu64" \n\n", reg.destination_address);
+    fprintf(stream, "Move flag: %d \n\n", reg.move_flg);
+    fprintf(stream, "Destination address: %p \n\n", (char*)reg.destination_address);
   }
+}
+
+/*
+ * Returns the index of the region of the object
+ */
+size_t get_region_index(char* obj){
+  return (obj - region_array[0].start_address) / ((size_t)REGION_SIZE);
+}
+
+/*
+ * Used for debugging, checks that all ref counters are 0
+ */
+void check_if_ref_reset(){
+  for(size_t i=0; i<REGION_ARRAY_SIZE; i++){
+    for(size_t j=0; j<WORKER_THREADS_NUM; j++){
+      assertf(region_array[i].ref_counter[j]==0, "Ref counters have not been reset properly");
+    }
+  }
+}
+
+/*
+ * Returns the file descriptor of nvme file.txt
+ */
+int allocator_get_fd(){
+  return fd;
 }
 
 /*
