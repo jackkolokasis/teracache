@@ -6,7 +6,10 @@
 #include "oops/oop.inline.hpp"
 #include "runtime/globals.hpp"
 #include "runtime/mutexLocker.hpp"
+#include <mutex>
 #include <tera_allocator.h>
+
+std::mutex increment_lock;
 
 char *TeraHeap::_start_addr = NULL;
 char *TeraHeap::_stop_addr = NULL;
@@ -542,6 +545,8 @@ char* TeraHeap::h2_add_object(oop obj, size_t size) {
 
   pos = allocate(size, (uint64_t)obj->get_obj_group_id(), (uint64_t)obj->get_obj_part_id());
 
+  mark_for_transfer_to_H2((HeapWord *)pos);
+
 	_start_array.th_allocate_block((HeapWord *)pos);
 
 	return pos;
@@ -686,9 +691,14 @@ size_t TeraHeap::get_region_number(char* obj){
   return get_region_index(obj);
 }
 
-// Returns the file descriptor of the nvme file
-int TeraHeap::get_h2_fd(){
-  return allocator_get_fd();
+// Reads from nvme the region and copies it to the BUFFER
+// Returns 0 on success and negative int on error
+int TeraHeap::get_region_copy(struct region* reg_meta, char* BUFFER, uint64_t *diff){
+  return copy_region(reg_meta, BUFFER, diff);
+}
+
+void TeraHeap::mark_for_transfer_to_H2(HeapWord* h2_destination_address){
+  mark_for_transfer((char*)h2_destination_address);
 }
 
 //prints ref_counters and destination addresses for
@@ -719,7 +729,7 @@ void TeraHeap::set_destination_addr(struct region* reg, uint64_t new_addr){
 //Argument: the address of the object
 //Wrapper for calculate_obj_offset
 // file: project_dir/allocator/include/segment.h
-uint64_t TeraHeap::h2_get_offset(char* obj){
+off_t TeraHeap::h2_get_offset(char* obj){
 	return calculate_obj_offset(obj);
 }
 

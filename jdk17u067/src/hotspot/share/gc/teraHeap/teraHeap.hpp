@@ -320,8 +320,11 @@ public:
   // returns the H2 region number
   size_t get_region_number(char* obj);
 
-  // Returns the file descriptor of the nvme file
-  int get_h2_fd();
+  // Reads from nvme the region and copies it to the BUFFER
+  // Returns 0 on success and negative int on error
+  int get_region_copy(struct region* reg_meta, char* BUFFER, uint64_t *diff);
+
+  void mark_for_transfer_to_H2(HeapWord* h2_destination_address);
 
   //prints ref_counters and destination addresses for
   //all regions that are not empty
@@ -350,7 +353,7 @@ public:
   //Argument: the address of the object
   //Wrapper for calculate_obj_offset
   // file: project_dir/allocator/include/segment.h
-  uint64_t h2_get_offset(char* obj);
+  off_t h2_get_offset(char* obj);
 
 #ifdef TERA_TIMERS
   // Tera timers maintains timers for the different phases of the

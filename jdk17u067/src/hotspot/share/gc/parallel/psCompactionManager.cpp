@@ -90,6 +90,8 @@ void ParCompactionManager::initialize(ParMarkBitMap* mbm) {
     oop_task_queues()->register_queue(i, _manager_array[i]->marking_stack());
     _objarray_task_queues->register_queue(i, &_manager_array[i]->_objarray_stack);
     region_task_queues()->register_queue(i, _manager_array[i]->region_stack());
+    _manager_array[i]->worker_id = i;
+    fprintf(stderr, "Setup manager with id = %lu\n", _manager_array[i]->get_worker_id());
   }
 
   // The VMThread gets its own ParCompactionManager, which is not available

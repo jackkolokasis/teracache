@@ -1089,9 +1089,9 @@ class PSParallelCompact : AllStatic {
   static void clear_data_covering_space(SpaceId id);
 
   static void pre_compact();
-  static void post_compact();
+  static void post_compact(struct underpopulated_regions* uregions, uint64_t diff);
 
-  static void move_h2_regions(struct underpopulated_regions* uregions);
+  static uint64_t move_h2_regions(struct underpopulated_regions* uregions);
 
   // Mark live objects
   static void marking_phase(ParCompactionManager* cm,
@@ -1163,7 +1163,7 @@ class PSParallelCompact : AllStatic {
   static void set_up_h2_regions(SpaceId id, struct underpopulated_regions* uregions);
   static void summarize_spaces_quick();
   static void summarize_space(SpaceId id, bool maximum_compaction);
-  static void summary_phase(ParCompactionManager* cm, bool maximum_compaction, struct underpopulated_regions* uregions);
+  static void summary_phase(ParCompactionManager* cm, bool maximum_compaction);
 
 #ifdef TERA_MAJOR_GC
   // Adjust the references of H2 candidate objects and then move them

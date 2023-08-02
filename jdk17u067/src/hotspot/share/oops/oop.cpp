@@ -81,6 +81,7 @@ void oopDesc::print_value_on(outputStream* st) const {
 
 void oopDesc::verify_on(outputStream* st, oopDesc* oop_desc) {
   if (oop_desc != NULL) {
+    fprintf(stderr, "");
     oop_desc->klass()->oop_verify_on(oop_desc, st);
   }
 }

@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <sys/mman.h>
+#include <unistd.h>
 #include <limits.h>
 #include "../include/segments.h"
 #include "../include/regions.h"
@@ -44,6 +45,7 @@ void init_regions(){
     region_array[i].dependency_list           = NULL;
     region_array[i].destination_address       = 0;
     region_array[i].move_flg                  = 0;
+    region_array[i].underTransfer             = 0;
     for(size_t j=0; j<WORKER_THREADS_NUM; j++){
 	    region_array[i].ref_counter[j] = 0;
     }
@@ -380,7 +382,8 @@ struct underpopulated_regions* get_underpopulated_regions(long unsigned amount_o
 	
 	for(size_t current_reg = 0; current_reg < REGION_ARRAY_SIZE; current_reg++){
 		if(region_array[current_reg].start_address == region_array[current_reg].last_allocated_end ||
-				get_ref_counter_sum(&region_array[current_reg])==0)
+				get_ref_counter_sum(&region_array[current_reg])==0 ||
+        region_array[current_reg].underTransfer)
 			continue;
 
 		if(new_uregions->size < new_uregions->capacity)
@@ -435,6 +438,7 @@ void reset_used(){
     int32_t i;
     for (i = 0 ; i < REGION_ARRAY_SIZE ; i++){
         region_array[i].used = 0;
+        region_array[i].underTransfer = 0;
 
         for(size_t j=0; j<WORKER_THREADS_NUM; j++){
 	        region_array[i].ref_counter[j] = 0;
@@ -613,9 +617,9 @@ void increment_ref_counter(char *obj, unsigned worker_id){
 /*
  * Returns the offset of the object from ste start of the region
  */
-uint64_t calculate_obj_offset(char* obj){
+off_t calculate_obj_offset(char* obj){
   struct region* current_region = get_region_metadata(obj);
-  return (uint64_t)(obj - current_region->start_address);
+  return (off_t)(obj - (off_t)current_region->start_address);
 }
 
 /*
@@ -683,10 +687,40 @@ void check_if_ref_reset(){
 }
 
 /*
- * Returns the file descriptor of nvme file.txt
+ * Causes I/O operation to nvme device and copies a region from H2 to the buffer
+ * Arguments: Region to be copied, and a BUFFER of size REGION_SIZE
+ * Return:    zero on success, negative on failure 
  */
-int allocator_get_fd(){
-  return fd;
+int copy_region(struct region* reg, char* BUFFER, uint64_t* diff){
+  assert(reg->start_address != reg->last_allocated_end && reg->last_allocated_end - reg->start_address <= REGION_SIZE);
+  uint64_t offset = reg->start_address - tc_mem_pool.mmap_start;
+
+  fprintf(stderr, "\n|-|-|-|-|-|-| Reading Region |-|-|-|-|-|-|\n");
+
+  ssize_t read_rt = pread(fd, BUFFER, REGION_SIZE, offset);
+  
+  if(read_rt < 0){
+    fprintf(stderr, "ERROR: I/O (pread) to nvme device failed: pread returned %ld\n", read_rt);
+    return -55;
+  }
+
+  fprintf(stderr, "\nPread returned %ld\n", read_rt);
+  fprintf(stderr, "Offset: %" PRIu64 "\n", offset);
+  fprintf(stderr, "Reg start_address=%p | top point=%p | destination_address=%p\n", 
+    reg->start_address, reg->last_allocated_end, (char*)reg->destination_address);
+    *diff = (uint64_t)reg->last_allocated_end - (uint64_t)reg->start_address;
+
+  fprintf(stderr, "Last allocated start: %p || Last allocated end: %p\n\n", reg->last_allocated_start, reg->last_allocated_end);
+  fprintf(stderr, "Start: %p || First allocated start: %p\n\n", reg->start_address, reg->first_allocated_start);
+    
+  return 0;
+}
+
+/*
+ * Marks a region where objects will arrive in the current gc from the H1 Heap
+ */
+void mark_for_transfer(char* destination_address){
+  get_region_metadata(destination_address)->underTransfer = 1;
 }
 
 /*

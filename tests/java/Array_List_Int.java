@@ -53,7 +53,7 @@ public class Array_List_Int {
 
 	public static void main (String[] args) 
 	{		 
-		int num_elements =10000000;
+		int num_elements =10;
 		long sum = 0;
 
 		mem_info("Memory Before");

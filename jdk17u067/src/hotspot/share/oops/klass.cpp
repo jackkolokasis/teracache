@@ -791,8 +791,12 @@ void Klass::verify_on(outputStream* st) {
 }
 
 void Klass::oop_verify_on(oop obj, outputStream* st) {
+  //fprintf(stderr, "\tFirst guarantee\n");
   guarantee(oopDesc::is_oop(obj),  "should be oop");
+  //fprintf(stderr, "\tSecond guarantee\n");
   guarantee(obj->klass()->is_klass(), "klass field is not a klass");
+  //fprintf(stderr, "\tGuarantees Done\n");
+  //fflush(stderr);
 }
 
 bool Klass::is_valid(Klass* k) {

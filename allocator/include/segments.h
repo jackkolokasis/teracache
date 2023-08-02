@@ -51,6 +51,7 @@ struct region{
     struct group *dependency_list;
     long unsigned ref_counter[8];
     uint64_t destination_address;
+    bool underTransfer;
     bool move_flg;
 #if ANONYMOUS
   struct offset *offset_list;
@@ -159,7 +160,7 @@ void increment_ref_counter(char *obj, unsigned worker_id);
 /*
  * Returns the offset of the object from ste start of the region
  */
-uint64_t calculate_obj_offset(char* obj);
+off_t calculate_obj_offset(char* obj);
 
 /*
  * Returns the metadata of the objects's region
@@ -230,9 +231,16 @@ long total_used_regions();
 void print_used_regions();
 
 /*
- * Returns the file descriptor of nvme file.txt
+ * Causes I/O operation to nvme device and copies a region from H2 to the buffer
+ * Arguments: Region to be copied, and a BUFFER of size REGION_SIZE
+ * Return:    zero on success, negative on failure 
  */
-int allocator_get_fd();
+int copy_region(struct region* reg, char* BUFFER, uint64_t *diff);
+
+/*
+ * Marks a region where objects will arrive in the current gc from the H1 Heap
+ */
+void mark_for_transfer(char* destination_address);
 
 /*
  * Checks if address of obj is before last object

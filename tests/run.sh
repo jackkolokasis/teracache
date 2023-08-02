@@ -137,6 +137,7 @@ function run_tests() {
     -XX:-UseCompressedClassPointers \
     -XX:+TeraHeapStatistics \
     -XX:TeraStripeSize=${STRIPE_SIZE} \
+    -XX:TeraHeapPolicy="SparkPrimitivePolicy" \
     -Xlogth:llarge_teraCache.txt "${class_file}" > err 2>&1 > out
   }
 
@@ -158,6 +159,7 @@ function run_tests_debug() {
     -XX:-UseCompressedClassPointers \
     -XX:+TeraHeapStatistics \
     -XX:TeraStripeSize=${STRIPE_SIZE} \
+    -XX:TeraHeapPolicy="SparkPrimitivePolicy" \
     -Xlogth:llarge_teraCache.txt "${class_file}"
 }
 

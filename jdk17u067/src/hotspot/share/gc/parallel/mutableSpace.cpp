@@ -258,10 +258,18 @@ void MutableSpace::verify() {
   HeapWord* p = bottom();
   HeapWord* t = top();
   HeapWord* prev_p = NULL;
+  fprintf(stderr, "\nIN VERIFY: bottom: %p || top: %p\n\n Verifying oops:\n", p, t);
+  size_t count = 0;
   while (p < t) {
+    // fprintf(stderr, "%lu) verifying: %p\n", count, p);
+    // fflush(stderr);
     oopDesc::verify(cast_to_oop(p));
     prev_p = p;
+    count += cast_to_oop(p)->size();
     p += cast_to_oop(p)->size();
   }
+  fprintf(stderr, "Done in total diff = %lu\n", count);
+  fprintf(stderr, "Verifying p == top\n");
   guarantee(p == top(), "end of last object must match end of space");
+  fprintf(stderr, "Verify done!\n");
 }
