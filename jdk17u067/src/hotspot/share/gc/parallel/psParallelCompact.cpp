@@ -97,7 +97,7 @@
 
 std::mutex count_m;
 
-#define H2_TRANSFER 1
+#define H2_TRANSFER 0
 
 long unsigned test_check_refs = 0;
 
@@ -1039,6 +1039,7 @@ HeapWord *ParallelCompactData::calc_new_pointer(HeapWord *addr, ParCompactionMan
     return Universe::teraHeap()->compact_h2_candidate_obj_enabled() ? (HeapWord *)cast_to_oop(addr)->get_h2_dst_addr() : region_ptr->get_forwarding_table()->find(addr)->literal();
   }
 
+
   HeapWord *result = region_ptr->destination();
 
   // If the entire Region is live, the new location is region->destination + the
@@ -1370,7 +1371,7 @@ void PSParallelCompact::post_compact(struct underpopulated_regions *uregions, ui
     // Clear the marking bitmap, summary data and split info.
     clear_data_covering_space(SpaceId(id));
     // Update top().  Must be done after clearing the bitmap and summary data.
-    if (H2_TRANSFER && EnableTeraHeap && id == old_space_id)
+    if (H2_TRANSFER && EnableTeraHeap && id == old_space_id && uregions->size > 0)
     {
       fprintf(stderr, "In Publish New Top: used_in_bytes=%lu\n", _space_info[old_space_id].space()->used_in_bytes());
       _space_info[old_space_id].set_new_top(
@@ -1466,19 +1467,18 @@ uint64_t PSParallelCompact::move_h2_regions(struct underpopulated_regions *uregi
 
     fprintf(stderr, "\nStart pointer %p || End pointer %p || Their diff %lu\n\n", start_ptr, end_ptr, (size_t)end_ptr - (size_t)start_ptr);
 
-    // while(start_ptr < end_ptr){
-    //   fprintf(stderr, "offset=%lu) start_ptr: %p || copied in: %p\n", current_buffer_offset, start_ptr, start_ptr);
-    //   fprintf(stderr, "\tFrom BUFFER: Klass = %s\n", cast_to_oop(buffer+current_buffer_offset)->klass()->internal_name());
-    //   size_t obj_size = cast_to_oop(start_ptr)->size();
+    while(start_ptr < end_ptr){
+      // fprintf(stderr, "offset=%lu) start_ptr: %p || copied in: %p\n", current_buffer_offset, start_ptr, start_ptr);
+      if ( !(cast_to_oop(buffer+current_buffer_offset)->klass()->internal_name()[0]=='[' && cast_to_oop(buffer+current_buffer_offset)->klass()->internal_name()[1]=='B') )
+        fprintf(stderr, "\tCopying to H1 from H2: Klass = %s\n", cast_to_oop(buffer+current_buffer_offset)->klass()->internal_name());
 
-    //   fprintf(stderr, "\tsize=%lu\n", obj_size);
-    //   fprintf(stderr, "\t%p | Klass = %s\n", start_ptr, cast_to_oop(start_ptr)->klass()->internal_name());
-    //   oopDesc::verify(cast_to_oop(start_ptr));
-    //   fflush(stderr);
+      size_t obj_size = cast_to_oop(start_ptr)->size();
 
-    //   start_ptr = start_ptr + obj_size;
-    //   current_buffer_offset = current_buffer_offset + (obj_size*8);
-    // }
+      oopDesc::verify(cast_to_oop(start_ptr));
+
+      start_ptr = start_ptr + obj_size;
+      current_buffer_offset = current_buffer_offset + (obj_size*8);
+    }
     fprintf(stderr, "Exit from copy loop with total offset %lu and initial diff being %lu\n", current_buffer_offset, diff);
   }
 
@@ -2091,6 +2091,31 @@ void PSParallelCompact::set_up_h2_regions(SpaceId id, struct underpopulated_regi
       assert(uregions->move_regions_list[i]->destination_address - uregions->move_regions_list[i - 1]->destination_address == reg_size,
              "Diffrenece between regions' destination address is not equal to REGION_SIZE");
     }
+ 
+    uint64_t diff = (uint64_t)uregions->move_regions_list[i]->last_allocated_end - (uint64_t)uregions->move_regions_list[i]->start_address;
+
+    // check for java.lang.Object
+
+    HeapWord *start_ptr, *end_ptr;
+    start_ptr = (HeapWord *)uregions->move_regions_list[i]->start_address;
+    end_ptr = start_ptr + (diff / 8);
+
+    while (start_ptr < end_ptr){
+
+      if ( strcmp (cast_to_oop(start_ptr)->klass()->internal_name(), "java.lang.Object") == 0 ){
+        fprintf(stderr, "!!! java.lang.Object detected, cancelling copy of region !!!\n");
+        i=0;
+        while(i < uregions->size){
+          uregions->move_regions_list[i]->destination_address = 0;
+          i++;
+        }
+        uregions->size = 0;
+        return;
+      }
+      start_ptr += cast_to_oop(start_ptr)->size();
+    }
+
+    fprintf(stderr, "^^^ NO java.lang.Object found, continue ^^^\n");
   }
 }
 
@@ -2312,11 +2337,6 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     fprintf(stderr, "GENERATION: %d || new_bott = %p || new_top = %p\n", id, _space_info[id].space()->bottom(), _space_info[id].new_top());
   }
 
-  // while(memptr_start_prev < memptr_end_prev){
-  //   fprintf(stderr, "%p | Klass = %s\n", memptr_start_prev, cast_to_oop(memptr_start_prev)->klass()->internal_name());
-  //   memptr_start_prev += cast_to_oop(memptr_start_prev)->size();
-  // }
-
   assert(SafepointSynchronize::is_at_safepoint(), "must be at a safepoint");
   assert(ref_processor() != NULL, "Sanity");
   test_check_refs = 0;
@@ -2431,7 +2451,7 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 
     struct underpopulated_regions *uregions;
     
-    if(EnableTeraHeap){
+    if(EnableTeraHeap && H2_TRANSFER){
       uregions = Universe::teraHeap()->get_underpopulated_regs(UREGIONS_SIZE);
       // Set destination addresses for for the regions that will be moved
       set_up_h2_regions(old_space_id, uregions);
@@ -2477,14 +2497,6 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     fprintf(stderr, "After Post Compact: used_in_bytes=%lu\n", ParallelScavengeHeap::heap()->old_gen()->used_in_bytes());
 
     fprintf(stderr, "\nTotal h2 reference pointers adjusted: %lu\n\n", test_check_refs);
-    // Set the new top pointer for the old space to point to and of the moved H2 regions
-    test_check_refs = 0;
-
-    for (size_t region = 0; region < uregions->size; region++)
-    {
-      uregions->move_regions_list[region]->move_flg = 0;
-      uregions->move_regions_list[region]->destination_address = 0;
-    }
 
 #ifdef TERA_MAJOR_GC
     if (EnableTeraHeap)

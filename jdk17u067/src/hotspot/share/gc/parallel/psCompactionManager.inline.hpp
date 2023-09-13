@@ -127,6 +127,8 @@ inline void ParCompactionManager::tera_mark_and_push(T* p) {
 
 template <typename T>
 inline void ParCompactionManager::mark_and_push(T* p) {
+  if (EnableTeraHeap)
+    _traced_obj_has_ref = true;
   T heap_oop = RawAccess<>::oop_load(p);
   if (!CompressedOops::is_null(heap_oop)) {
     oop obj = CompressedOops::decode_not_null(heap_oop);
@@ -138,10 +140,10 @@ inline void ParCompactionManager::mark_and_push(T* p) {
                  assert(ParallelScavengeHeap::heap()->is_in(obj), "should be in heap");
                });
 
-#if defined(TERA_STATS) && defined(OBJ_STATS)
-    if (EnableTeraHeap && TeraHeapStatistics)
-      _traced_obj_has_ref = true;
-#endif
+// #if defined(TERA_STATS) && defined(OBJ_STATS)
+//     if (EnableTeraHeap && TeraHeapStatistics)
+//       _traced_obj_has_ref = true;
+// #endif
 
     if (EnableTeraHeap && Universe::teraHeap()->is_obj_in_h2(obj)) {
       Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(obj), get_worker_id());
