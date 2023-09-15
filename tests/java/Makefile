@@ -15,7 +15,7 @@ JAVA_REPO := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))../../jdk17u067
 JAVAC=$(JAVA_REPO)/build/linux-x86_64-server-fastdebug/jdk/bin/javac
 PROJECT_DIR := $(shell pwd)/../..
 
-TARGET=Array.class Array_List.class Array_List_Int.class List_Large.class \
+TARGET=Array.class Array_List.class Array_List_Int.class Array_List_IntArrays.class List_Large.class \
 	   MultiList.class Simple_Lambda.class Extend_Lambda.class \
 	   Test_Reflection.class Test_Reference.class HashMap.class Rehashing.class \
 	   Clone.class Groupping.class MultiHashMap.class Test_WeakHashMap.class \
@@ -30,6 +30,9 @@ Array_List.class: Array_List.java
 	$(JAVAC) $<
 
 Array_List_Int.class: Array_List_Int.java 
+	$(JAVAC) $<
+
+Array_List_IntArrays.class: Array_List_IntArrays.java 
 	$(JAVAC) $<
 
 List_Large.class: List_Large.java 
