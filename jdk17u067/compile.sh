@@ -32,8 +32,8 @@ function release()
   make dist-clean
   bash ./configure \
     --with-jobs="$(nproc)" \
-    --with-extra-cflags="-O3 -I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include" \
-    --with-extra-cxxflags="-O3 -I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include" \
+    --with-extra-cflags="-O3 -I/spare/kd/teraheap/allocator/include -I/spare/kd/teraheap/allocator/include" \
+    --with-extra-cxxflags="-O3 -I/spare/kd/teraheap/allocator/include -I/spare/kd/teraheap/allocator/include" \
     --with-target-bits=64
   
   intercept-build make
@@ -46,7 +46,7 @@ function release()
 # Compile with debug symbols and assertions
 function debug_symbols_on() 
 {
-	export LD_LIBRARY_PATH=/home1/public/konstdelis/teraheap/allocator/lib:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=/spare/kd/teraheap/allocator/lib:$LD_LIBRARY_PATH
 
   make dist-clean
   bash ./configure \
@@ -54,8 +54,8 @@ function debug_symbols_on()
     --with-native-debug-symbols=internal \
     --with-target-bits=64 \
     --with-jobs="$(nproc)" \
-    --with-extra-cflags="-I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include" \
-    --with-extra-cxxflags="-I/home1/public/konstdelis/teraheap/allocator/include -I/home1/public/konstdelis/teraheap/allocator/include"
+    --with-extra-cflags="-I/spare/kd/teraheap/allocator/include -I/spare/kd/teraheap/allocator/include" \
+    --with-extra-cxxflags="-I/spare/kd/teraheap/allocator/include -I/spare/kd/teraheap/allocator/include"
 
   intercept-build make
   cd ../ 
@@ -101,6 +101,8 @@ do
     d)
       export_env_vars
       debug_symbols_on
+
+
       ;;
     c)
       export_env_vars

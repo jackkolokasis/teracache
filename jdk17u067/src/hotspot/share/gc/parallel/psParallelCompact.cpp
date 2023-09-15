@@ -93,12 +93,7 @@
 
 #include <math.h>
 
-#define UREGIONS_SIZE 1
-
 std::mutex count_m;
-
-#define H2_MOVE_BACK 0
-#define H2_MOVE_DEBUG_PRINT 0
 
 long unsigned test_check_refs = 0;
 

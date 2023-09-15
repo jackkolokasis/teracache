@@ -139,4 +139,11 @@
 #define P_PRIMITIVE               //< Move only primitive arrays and
                                   // primitive objects to H2.
 
+
+#define H2_MOVE_BACK 1
+
+#define H2_MOVE_DEBUG_PRINT 0
+
+#define UREGIONS_SIZE 1
+
 #endif  // SHARE_MEMORY_SHAREDDEFINES_H
