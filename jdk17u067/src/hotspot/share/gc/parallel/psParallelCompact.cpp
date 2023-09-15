@@ -1501,8 +1501,8 @@ uint64_t PSParallelCompact::move_h2_regions(struct underpopulated_regions *uregi
       current_buffer_offset = current_buffer_offset + (obj_size*8);
     }
     fprintf(stderr, "Exit from copy loop with total offset %lu and initial diff being %lu\n", current_buffer_offset, diff);
-  }
 #endif
+  }
 
   FREE_C_HEAP_ARRAY(char, buffer);
   return diff;
