@@ -1159,7 +1159,6 @@ class PSParallelCompact : AllStatic {
   static void precompact_h2_candidate_objects();
 #endif
 
-  static void h2_adjust_new_top(struct underpopulated_regions* uregions);
   static void set_up_h2_regions(SpaceId id, struct underpopulated_regions* uregions);
   static void summarize_spaces_quick();
   static void summarize_space(SpaceId id, bool maximum_compaction);

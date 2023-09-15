@@ -2116,45 +2116,6 @@ void PSParallelCompact::set_up_h2_regions(SpaceId id, struct underpopulated_regi
   }
 }
 
-void PSParallelCompact::h2_adjust_new_top(struct underpopulated_regions *uregions)
-{
-  
-
-  // get REGION_SIZE from allocator
-  size_t REGION_SIZE = Universe::teraHeap()->get_region_size();
-
-  // get old top | set to the new top | get new top
-  HeapWord *old_top = _space_info[old_space_id].new_top();
-  if (uregions->size)
-    _space_info[old_space_id].set_new_top(
-        (HeapWord *)(uregions->move_regions_list[uregions->size - 1]->destination_address + REGION_SIZE));
-  HeapWord *new_top = _space_info[old_space_id].new_top();
-
-#if H2_MOVE_DEBUG_PRINT
-  /*--Debugging--*/
-  fprintf(stderr, "\n____After Post Compaction____\n");
-  fprintf(stderr, "uregions->size = %lu\n", uregions->size);
-#endif
-
-  if (uregions->size)
-  {
-    size_t prev = (size_t)uregions->move_regions_list[uregions->size - 1]->destination_address;
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "\nDiff of new_new_top from old_new_top %lu || old_new_top == %p\n",
-            (size_t)new_top - (size_t)old_top, old_top);
-    fprintf(stderr, "Diff of new_new_top from last regions dest_addr %lu || last dest_addr == %p\n",
-            (size_t)new_top - prev, (HeapWord *)prev);
-#endif
-    assert((size_t)new_top - (size_t)old_top == REGION_SIZE * uregions->size,
-           "Byte difference between old_new_top and new_new_top is not as expected");
-    assert((size_t)new_top - prev == REGION_SIZE,
-           "Byte difference between new_new_top and last set destination address is not REGION_SIZE");
-  }
-#if H2_MOVE_DEBUG_PRINT
-  fprintf(stderr, "\nThe new_new_pointer is at the end of gc cycle: %p\n", _space_info[old_space_id].new_top());
-#endif  
-}
-
 #ifndef PRODUCT
 void PSParallelCompact::summary_phase_msg(SpaceId dst_space_id,
                                           HeapWord *dst_beg, HeapWord *dst_end,
@@ -2433,7 +2394,10 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     }
 #endif // TERA_MAJOR_GC
 
-    Universe::teraHeap()->validate_rc_reset();
+#if H2_MOVE_DEBUG_PRINT
+    if(EnableTeraHeap)
+      Universe::teraHeap()->validate_rc_reset();
+#endif
 
     bool marked_for_unloading = false;
 
@@ -2492,12 +2456,15 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 #endif
     ParCompactionManager::verify_all_region_stack_empty();
 
+#if H2_MOVE_DEBUG_PRINT
     fprintf(stderr, "Before Move Regions: used_in_bytes=%lu\n", _space_info[old_space_id].space()->used_in_bytes());
+#endif
 
     uint64_t diff = 0;
 #if H2_MOVE_BACK
     // Move marked H2 regions to H1 heap
-    diff = move_h2_regions(uregions);
+    if (EnableTeraHeap)
+      diff = move_h2_regions(uregions);
 #endif
 
     // Reset the mark bitmap, summary data, and do other bookkeeping.  Must be
