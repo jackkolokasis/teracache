@@ -34,8 +34,8 @@ void init_regions(){
 
 #if DEBUG_PRINT 
   fprintf(stderr, "Total num of regions:%d\n", (int32_t) REGION_ARRAY_SIZE);
-#endif
   fprintf(stderr, "\nReseting region array\n\n");
+#endif
   for (i = 0; i < REGION_ARRAY_SIZE ; i++) {
     region_array[i].start_address             = (i == 0) ? start_addr_mem_pool() : (region_array[i - 1].start_address + (uint64_t) REGION_SIZE);
     region_array[i].used                      = 0;
@@ -695,7 +695,9 @@ int copy_region(struct region* reg, char* BUFFER, uint64_t* diff){
   assert(reg->start_address != reg->last_allocated_end && reg->last_allocated_end - reg->start_address <= REGION_SIZE);
   uint64_t offset = reg->start_address - tc_mem_pool.mmap_start;
 
+#if DEBUG_PRINT 
   fprintf(stderr, "\n|-|-|-|-|-|-| Reading Region |-|-|-|-|-|-|\n");
+#endif
 
   ssize_t read_rt = pread(fd, BUFFER, REGION_SIZE, offset);
   
@@ -704,6 +706,7 @@ int copy_region(struct region* reg, char* BUFFER, uint64_t* diff){
     return -55;
   }
 
+#if DEBUG_PRINT 
   fprintf(stderr, "\nPread returned %ld\n", read_rt);
   fprintf(stderr, "Offset: %" PRIu64 "\n", offset);
   fprintf(stderr, "Reg start_address=%p | top point=%p | destination_address=%p\n", 
@@ -712,7 +715,8 @@ int copy_region(struct region* reg, char* BUFFER, uint64_t* diff){
 
   fprintf(stderr, "Last allocated start: %p || Last allocated end: %p\n\n", reg->last_allocated_start, reg->last_allocated_end);
   fprintf(stderr, "Start: %p || First allocated start: %p\n\n", reg->start_address, reg->first_allocated_start);
-    
+#endif
+
   return 0;
 }
 
