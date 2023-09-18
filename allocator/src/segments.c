@@ -706,12 +706,13 @@ int copy_region(struct region* reg, char* BUFFER, uint64_t* diff){
     return -55;
   }
 
+  *diff = (uint64_t)reg->last_allocated_end - (uint64_t)reg->start_address;
+
 #if DEBUG_PRINT 
   fprintf(stderr, "\nPread returned %ld\n", read_rt);
   fprintf(stderr, "Offset: %" PRIu64 "\n", offset);
   fprintf(stderr, "Reg start_address=%p | top point=%p | destination_address=%p\n", 
     reg->start_address, reg->last_allocated_end, (char*)reg->destination_address);
-    *diff = (uint64_t)reg->last_allocated_end - (uint64_t)reg->start_address;
 
   fprintf(stderr, "Last allocated start: %p || Last allocated end: %p\n\n", reg->last_allocated_start, reg->last_allocated_end);
   fprintf(stderr, "Start: %p || First allocated start: %p\n\n", reg->start_address, reg->first_allocated_start);
