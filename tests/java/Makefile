@@ -12,7 +12,7 @@
 ####################################################
 
 JAVA_REPO := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))../../jdk17u067
-JAVAC=$(JAVA_REPO)/build/linux-x86_64-server-fastdebug/jdk/bin/javac
+JAVAC=$(JAVA_REPO)/build/linux-x86_64-server-release/jdk/bin/javac
 PROJECT_DIR := $(shell pwd)/../..
 
 TARGET=Array.class Array_List.class Array_List_Int.class Array_List_IntArrays.class List_Large.class \

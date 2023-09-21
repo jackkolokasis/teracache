@@ -51,6 +51,7 @@ struct region{
     struct group *dependency_list;
     long unsigned ref_counter[8];
     uint64_t destination_address;
+    uint64_t diff;
     bool underTransfer;
     bool move_flg;
 #if ANONYMOUS
@@ -235,7 +236,7 @@ void print_used_regions();
  * Arguments: Region to be copied, and a BUFFER of size REGION_SIZE
  * Return:    zero on success, negative on failure 
  */
-int copy_region(struct region* reg, char* BUFFER, uint64_t *diff);
+int copy_region(struct region* reg, char* BUFFER);
 
 /*
  * Marks a region where objects will arrive in the current gc from the H1 Heap

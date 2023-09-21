@@ -691,9 +691,9 @@ void check_if_ref_reset(){
  * Arguments: Region to be copied, and a BUFFER of size REGION_SIZE
  * Return:    zero on success, negative on failure 
  */
-int copy_region(struct region* reg, char* BUFFER, uint64_t* diff){
+int copy_region(struct region* reg, char* BUFFER){
   assert(reg->start_address != reg->last_allocated_end && reg->last_allocated_end - reg->start_address <= REGION_SIZE);
-  uint64_t offset = reg->start_address - tc_mem_pool.mmap_start;
+  uint64_t offset = reg->first_allocated_start - tc_mem_pool.mmap_start;
 
 #if DEBUG_PRINT 
   fprintf(stderr, "\n|-|-|-|-|-|-| Reading Region |-|-|-|-|-|-|\n");
@@ -705,8 +705,6 @@ int copy_region(struct region* reg, char* BUFFER, uint64_t* diff){
     fprintf(stderr, "ERROR: I/O (pread) to nvme device failed: pread returned %ld\n", read_rt);
     return -55;
   }
-
-  *diff = (uint64_t)reg->last_allocated_end - (uint64_t)reg->start_address;
 
 #if DEBUG_PRINT 
   fprintf(stderr, "\nPread returned %ld\n", read_rt);

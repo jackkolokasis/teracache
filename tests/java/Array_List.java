@@ -53,7 +53,7 @@ public class Array_List {
 
 	public static void main (String[] args)
 	{
-		int num_elements =500000;
+		int num_elements =1000000;
 		long sum = 0;
 
 		mem_info("Memory Before");
@@ -93,6 +93,36 @@ public class Array_List {
 		calcHashCode(arl, num_elements);
 
     gc();
+
+    calcHashCode(arl2, num_elements);
+
+		mem_info("Memory After"); 
+
+	gc();
+
+    calcHashCode(arl2, num_elements);
+
+		mem_info("Memory After"); 
+
+	gc();
+
+    calcHashCode(arl2, num_elements);
+
+		mem_info("Memory After"); 
+
+	gc();
+
+    calcHashCode(arl2, num_elements);
+
+		mem_info("Memory After"); 
+
+	gc();
+
+    calcHashCode(arl2, num_elements);
+
+		mem_info("Memory After"); 
+
+	gc();
 
     calcHashCode(arl2, num_elements);
 

@@ -322,7 +322,7 @@ public:
 
   // Reads from nvme the region and copies it to the BUFFER
   // Returns 0 on success and negative int on error
-  int get_region_copy(struct region* reg_meta, char* BUFFER, uint64_t *diff);
+  int get_region_copy(struct region* reg_meta, char* BUFFER);
 
   void mark_for_transfer_to_H2(HeapWord* h2_destination_address);
 
@@ -337,6 +337,8 @@ public:
   //Wrapper for get_underpopulated_regions
   // file: project_dir/allocator/include/segment.h
   struct underpopulated_regions* get_underpopulated_regs(unsigned region_amount);
+ 
+  void free_uregions(struct underpopulated_regions* uregions);
 
   //sets the destination address of the region
   //Argument: the region and the new destination address

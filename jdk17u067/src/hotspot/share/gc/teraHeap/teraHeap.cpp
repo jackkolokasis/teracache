@@ -693,8 +693,8 @@ size_t TeraHeap::get_region_number(char* obj){
 
 // Reads from nvme the region and copies it to the BUFFER
 // Returns 0 on success and negative int on error
-int TeraHeap::get_region_copy(struct region* reg_meta, char* BUFFER, uint64_t *diff){
-  return copy_region(reg_meta, BUFFER, diff);
+int TeraHeap::get_region_copy(struct region* reg_meta, char* BUFFER){
+  return copy_region(reg_meta, BUFFER);
 }
 
 void TeraHeap::mark_for_transfer_to_H2(HeapWord* h2_destination_address){
@@ -715,6 +715,10 @@ void TeraHeap::h2_print_reg_metadata(FILE* stream){
 // file: project_dir/allocator/include/segment.h
 struct underpopulated_regions* TeraHeap::get_underpopulated_regs(unsigned region_amount){
 	return get_underpopulated_regions(region_amount);
+}
+
+void TeraHeap::free_uregions(struct underpopulated_regions* uregions){
+  free_underpopulated_regions(uregions);
 }
 
 //sets the destination address of the region

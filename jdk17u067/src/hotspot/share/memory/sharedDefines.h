@@ -140,10 +140,10 @@
                                   // primitive objects to H2.
 
 
-#define H2_MOVE_BACK 1
+#define H2_MOVE_BACK 0
 
-#define H2_MOVE_DEBUG_PRINT 1
+#define H2_MOVE_DEBUG_PRINT 0
 
-#define UREGIONS_SIZE 1
+#define UREGIONS_SIZE 0
 
 #endif  // SHARE_MEMORY_SHAREDDEFINES_H
