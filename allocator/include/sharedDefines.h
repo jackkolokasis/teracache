@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define DEV "/mnt/fmap/file.txt"	     //< Device name
+#define DEV "/tmp/nvme/file.txt"	     //< Device name
 #define DEV_SIZE (700*1024LU*1024*1024)  //< Device size (in bytes)
 
 #define ASSERT

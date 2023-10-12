@@ -93,14 +93,14 @@
 
 #include <math.h>
 
-std::mutex count_m;
-
 uint64_t total_mb_transfered_back = 0;
 uint64_t total_back_transfers = 0;
 long unsigned test_check_refs = 0;
 
 HeapWord *memptr_start_prev = NULL;
 HeapWord *memptr_end_prev = NULL;
+uint64_t total_garbage_mb = 0;
+uint64_t total_alive_mb = 0;
 
 // All sizes are in HeapWords.
 const size_t ParallelCompactData::Log2RegionSize = 16; // 64K words
@@ -1090,11 +1090,11 @@ HeapWord *ParallelCompactData::h2_calc_new_pointer(HeapWord *addr) const
 
   // fprintf(stderr, "Adjusting pointer to point to %p\n", result);
 
-  #if H2_MOVE_DEBUG_PRINT
-    count_m.lock();
-    test_check_refs++;
-    count_m.unlock();
-  #endif
+  // #if H2_MOVE_DEBUG_PRINT
+  //   count_m.lock();
+  //   test_check_refs++;
+  //   count_m.unlock();
+  // #endif
 
   #if H2_MOVE_BACK
   return result;
@@ -1514,6 +1514,38 @@ uint64_t PSParallelCompact::move_h2_regions(struct underpopulated_regions *uregi
   FREE_C_HEAP_ARRAY(char, buffer);
   total_mb_transfered_back += total_diff / 1048576; //convert bytes to Mbytes
   return total_diff;
+}
+
+static void count_garbage_and_reset(underpopulated_regions* uregions){
+  uint64_t current_alive = 0, current_garbage = 0;
+
+  for (size_t i = 0; i < uregions->size; i++){
+    HeapWord *start_ptr, *end_ptr;
+    start_ptr = (HeapWord *)uregions->move_regions_list[i]->first_allocated_start;
+    end_ptr = (HeapWord *)uregions->move_regions_list[i]->last_allocated_end;
+
+    while(start_ptr < end_ptr){
+      oop current_obj = cast_to_oop(start_ptr);
+      size_t obj_size = current_obj->size();
+
+      if(current_obj->get_h2_dst_addr() == 544){
+        current_alive += obj_size * 8;
+      }
+      else {
+        current_garbage += obj_size * 8;
+      }
+
+      current_obj->set_h2_dst_addr(0);
+
+      start_ptr = start_ptr + obj_size;
+    }
+  }
+
+  fprintf(stderr, "\nAlive Objects Transferred Back To H1: %" PRIu64 "(bytes)\n", current_alive);
+  fprintf(stderr, "Garbage Objects Transferred Back To H1: %" PRIu64 "(bytes)\n\n", current_garbage);
+
+  total_alive_mb += (current_alive / 1048576);
+  total_garbage_mb += (current_garbage / 1048576);
 }
 
 HeapWord *
@@ -2476,6 +2508,11 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     fprintf(stderr, "Before Move Regions: used_in_bytes=%lu\n", _space_info[old_space_id].space()->used_in_bytes());
 #endif
 
+#if H2_TRANSFER_STATS
+    if(EnableTeraHeap)
+      count_garbage_and_reset(uregions);
+#endif
+
     uint64_t total_diff = 0;
 #if H2_MOVE_BACK
     // Move marked H2 regions to H1 heap
@@ -2489,7 +2526,7 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 
 #if H2_MOVE_DEBUG_PRINT
     fprintf(stderr, "After Post Compact: used_in_bytes=%lu\n", ParallelScavengeHeap::heap()->old_gen()->used_in_bytes());
-    fprintf(stderr, "\nTotal h2 reference pointers adjusted: %lu\n\n", test_check_refs);
+    //fprintf(stderr, "\nTotal h2 reference pointers adjusted: %lu\n\n", test_check_refs);
 #endif
 
 #ifdef TERA_MAJOR_GC
@@ -2686,6 +2723,11 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
   if(EnableTeraHeap){
     fprintf(stderr, "\nTRANSFER STATS:\n\ttotal transfers to H1: %" PRIu64 "\n\ttotal MB transfered: %" PRIu64 "\n", total_back_transfers, total_mb_transfered_back);
   }
+#endif
+
+#if H2_TRANSFER_STATS
+  fprintf(stderr, "TOTAL Alive Objects Transferred Back To H1: %" PRIu64 "(mb)\n", total_alive_mb);
+  fprintf(stderr, "TOTAL Garbage Objects Transferred Back To H1: %" PRIu64 "(mb)\n", total_garbage_mb);
 #endif
 
 #if H2_MOVE_DEBUG_PRINT

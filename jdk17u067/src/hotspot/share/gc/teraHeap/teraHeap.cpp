@@ -522,6 +522,10 @@ void TeraHeap::mark_used_region(HeapWord *obj, size_t thread_worker_no) {
   mark_used((char *) obj);
   increment_region_rc(obj, thread_worker_no);
 
+#if H2_TRANSFER_STATS
+  cast_to_oop(obj)->set_h2_dst_addr(544);
+#endif
+
   if (H2LivenessAnalysis)
     cast_to_oop(obj)->set_live();
 }
