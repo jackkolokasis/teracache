@@ -877,6 +877,9 @@ void ParallelCompactData::compact_h2_candidate_objects(HeapWord *source_beg,
 
       // Move objects to H2
       Universe::teraHeap()->h2_move_obj(h1_addr, h2_addr, size);
+
+      // HERE! ADD COUNTER
+
       //}
 
       if (tmp_end >= range_end)
