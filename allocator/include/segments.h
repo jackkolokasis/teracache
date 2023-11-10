@@ -170,6 +170,13 @@ off_t calculate_obj_offset(char* obj);
 struct region* get_region_metadata(char *obj);
 
 /*
+ * Returns the address of the first object in h2
+ */
+char* get_h2_first_object();
+
+size_t get_h2_region_number();
+
+/*
  * Sets the destination address of the object's region,
  * if it is not already set
  * Arguments: obj: Object whose region destination address will be set

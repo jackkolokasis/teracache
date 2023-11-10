@@ -314,6 +314,10 @@ public:
   // file: project_dir/allocator/include/segment.h
   struct region* get_region_meta(char* obj);
 
+  char* get_h2_first_obj();
+
+  size_t get_h2_region_no();
+
   // checks that ref counters have been reset
   void validate_rc_reset();
 

@@ -685,6 +685,14 @@ struct region* TeraHeap::get_region_meta(char* obj){
 	return get_region_metadata(obj);
 }
 
+char* TeraHeap::get_h2_first_obj(){
+  return get_h2_first_object();
+}
+
+size_t TeraHeap::get_h2_region_no(){
+  return get_h2_region_number();
+}
+
 // checks that ref counters have been reset
 void TeraHeap::validate_rc_reset(){
   check_if_ref_reset();

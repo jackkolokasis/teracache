@@ -93,14 +93,17 @@
 
 #include <math.h>
 
-uint64_t total_mb_transfered_back = 0;
-uint64_t total_back_transfers = 0;
+//Used for debugging
 long unsigned test_check_refs = 0;
-
 HeapWord *memptr_start_prev = NULL;
 HeapWord *memptr_end_prev = NULL;
-uint64_t total_garbage_mb = 0;
-uint64_t total_alive_mb = 0;
+
+//Transfer Stats counters
+uint64_t total_garbage = 0, transfer_back_garbage = 0;
+uint64_t total_alive = 0, transfer_back_alive = 0;
+uint64_t moved_to_h2 = 0;
+uint64_t gcs_sum_alive_mb = 0, gcs_sum_dead_mb = 0;
+uint64_t total_back_transfers=0, total_mb_transfered_back=0;
 
 // All sizes are in HeapWords.
 const size_t ParallelCompactData::Log2RegionSize = 16; // 64K words
@@ -878,7 +881,7 @@ void ParallelCompactData::compact_h2_candidate_objects(HeapWord *source_beg,
       // Move objects to H2
       Universe::teraHeap()->h2_move_obj(h1_addr, h2_addr, size);
 
-      // HERE! ADD COUNTER
+      moved_to_h2 += size * 8;
 
       //}
 
@@ -1519,36 +1522,54 @@ uint64_t PSParallelCompact::move_h2_regions(struct underpopulated_regions *uregi
   return total_diff;
 }
 
-static void count_garbage_and_reset(underpopulated_regions* uregions){
-  uint64_t current_alive = 0, current_garbage = 0;
+static void count_garbage_alive(oop current_obj){
+  if(current_obj->get_h2_dst_addr() == 544){
+    total_alive += current_obj->size() * 8;
+  }
+  else {
+    total_garbage += current_obj->size() * 8;
+  }
+}
 
-  for (size_t i = 0; i < uregions->size; i++){
-    HeapWord *start_ptr, *end_ptr;
-    start_ptr = (HeapWord *)uregions->move_regions_list[i]->first_allocated_start;
-    end_ptr = (HeapWord *)uregions->move_regions_list[i]->last_allocated_end;
+static void reset_teraflag(oop current_obj){
+  current_obj->set_h2_dst_addr(0);
+}
 
-    while(start_ptr < end_ptr){
-      oop current_obj = cast_to_oop(start_ptr);
-      size_t obj_size = current_obj->size();
+static void iterate_h2(void action(oop)){
+  HeapWord* curr_reg_start = (HeapWord*) (Universe::teraHeap()->get_h2_first_obj());
+  HeapWord* curr;;
+  size_t region_array_size = Universe::teraHeap()->get_h2_region_no();
 
-      if(current_obj->get_h2_dst_addr() == 544){
-        current_alive += obj_size * 8;
+  for(size_t region_no=0; region_no<region_array_size; region_no++){
+    curr = curr_reg_start;
+
+    while(Universe::teraHeap()->check_if_valid_object(curr)){
+      oop obj = cast_to_oop(curr);
+      action(obj);
+      curr += obj->size();
+    }
+
+    curr_reg_start += Universe::teraHeap()->get_region_size()/8;
+  }
+}
+
+void count_garbage_transfered(underpopulated_regions* uregions){
+  for(size_t region_no=0; region_no<uregions->size; region_no++){
+    HeapWord* curr = (HeapWord*) uregions->move_regions_list[region_no]->first_allocated_start;
+
+    while(Universe::teraHeap()->check_if_valid_object(curr)){
+      oop obj = cast_to_oop(curr);
+      
+      if(obj->get_h2_dst_addr() == 544){
+        transfer_back_alive += obj->size() * 8;
       }
       else {
-        current_garbage += obj_size * 8;
+        transfer_back_garbage += obj->size() * 8;
       }
 
-      current_obj->set_h2_dst_addr(0);
-
-      start_ptr = start_ptr + obj_size;
+      curr += obj->size();
     }
   }
-
-  fprintf(stderr, "\nAlive Objects Transferred Back To H1: %" PRIu64 "(bytes)\n", current_alive);
-  fprintf(stderr, "Garbage Objects Transferred Back To H1: %" PRIu64 "(bytes)\n\n", current_garbage);
-
-  total_alive_mb += (current_alive / 1048576);
-  total_garbage_mb += (current_garbage / 1048576);
 }
 
 HeapWord *
@@ -2355,6 +2376,18 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
   }
 #endif
 
+#if H2_TRANSFER_STATS
+  total_garbage = 0;
+  total_alive = 0;
+  transfer_back_alive = 0;
+  transfer_back_garbage = 0;
+  moved_to_h2 = 0;
+
+  if(EnableTeraHeap){
+    iterate_h2(reset_teraflag);
+  }
+#endif
+
   assert(SafepointSynchronize::is_at_safepoint(), "must be at a safepoint");
   assert(ref_processor() != NULL, "Sanity");
   test_check_refs = 0;
@@ -2465,6 +2498,14 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     }
 #endif
 
+#if H2_TRANSFER_STATS
+    if(EnableTeraHeap)
+      iterate_h2(count_garbage_alive);
+
+      fprintf(stderr, "\nTransfer Stats: First Count Total Alive %" PRIu64 "mb\n", total_alive/1048576);
+      fprintf(stderr, "Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
+#endif
+
     bool max_on_system_gc = UseMaximumCompactionOnSystemGC && GCCause::is_user_requested_gc(gc_cause);
 
     /*Get underused regions*/
@@ -2512,8 +2553,23 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 #endif
 
 #if H2_TRANSFER_STATS
-    if(EnableTeraHeap)
-      count_garbage_and_reset(uregions);
+    if(EnableTeraHeap){
+      count_garbage_transfered(uregions);
+
+      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive %" PRIu64 "mb\n", transfer_back_alive/1048576);
+      fprintf(stderr, "Transfer Stats: Transfered Back Total Garbage %" PRIu64 "mb\n", transfer_back_garbage/1048576);
+
+      fprintf(stderr, "\nTransfer Stats: Alive Moved to H2 this GC %" PRIu64 "mb\n", moved_to_h2/1048576);
+
+      fprintf(stderr, "\nTransfer Stats: end of GC TOTAL alive: %" PRIu64 "mb\n", (total_alive - transfer_back_alive + moved_to_h2) / 1048576);
+      fprintf(stderr, "Transfer Stats: end of GC TOTAL garbage: %" PRIu64 "mb\n", (total_garbage - transfer_back_garbage) / 1048576);
+
+      gcs_sum_alive_mb += transfer_back_alive / 1048576;
+      gcs_sum_dead_mb += transfer_back_garbage / 1048576;
+
+      fprintf(stderr, "\nTransfer Stats: ALL GCs TRANSFER BACK alive: %" PRIu64 "mb\n", gcs_sum_alive_mb);
+      fprintf(stderr, "Transfer Stats: ALL GCs TRANSFER BACK garbage: %" PRIu64 "mb\n", gcs_sum_dead_mb);
+    }
 #endif
 
     uint64_t total_diff = 0;
@@ -2726,11 +2782,6 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
   if(EnableTeraHeap){
     fprintf(stderr, "\nTRANSFER STATS:\n\ttotal transfers to H1: %" PRIu64 "\n\ttotal MB transfered: %" PRIu64 "\n", total_back_transfers, total_mb_transfered_back);
   }
-#endif
-
-#if H2_TRANSFER_STATS
-  fprintf(stderr, "TOTAL Alive Objects Transferred Back To H1: %" PRIu64 "(mb)\n", total_alive_mb);
-  fprintf(stderr, "TOTAL Garbage Objects Transferred Back To H1: %" PRIu64 "(mb)\n", total_garbage_mb);
 #endif
 
 #if H2_MOVE_DEBUG_PRINT
