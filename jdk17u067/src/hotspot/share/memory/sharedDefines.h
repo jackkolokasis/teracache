@@ -140,12 +140,19 @@
                                   // primitive objects to H2.
 
 
-#define H2_MOVE_BACK 1
+
+#define H2_MOVE_BACK 1 // 0 for no transfers, 1 for transfers
 
 #define H2_MOVE_DEBUG_PRINT 0
 
-#define UREGIONS_SIZE 10                    
+#define UREGIONS_SIZE 10                 
 
-#define H2_TRANSFER_STATS 1
+#define H2_TRANSFER_STATS 1 // 
+
+#define REFERENCES_MEMORY   500 //Memory optimization policy with forward reference counters
+#define CARDS_MEMORY        501 //Memory optimization policy using card tables
+#define PERFORMANCE         502 //Policy aiming for performance speed up by transfering 'hot' objects
+
+#define TRANSFER_POLICY     REFERENCES_MEMORY //Select one of the above policies
 
 #endif  // SHARE_MEMORY_SHAREDDEFINES_H

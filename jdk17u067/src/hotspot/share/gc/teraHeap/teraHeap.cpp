@@ -576,7 +576,7 @@ void TeraHeap::group_region_enabled(HeapWord* obj, void *obj_field) {
 	
   // Mark the H2 card table as dirty if obj is in H1 (backward
   // reference)
-	BarrierSet* bs = BarrierSet::barrier_set();
+	BarrierSet* bs = BarrierSet::barrier_set(); //refhere
   CardTableBarrierSet* ctbs = barrier_set_cast<CardTableBarrierSet>(bs);
   CardTable* ct = ctbs->card_table();
 

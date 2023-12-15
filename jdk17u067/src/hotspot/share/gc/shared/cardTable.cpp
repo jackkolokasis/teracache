@@ -433,7 +433,7 @@ void CardTable::dirty_MemRegion(MemRegion mr) {
   assert(align_up  (mr.end(),   HeapWordSize) == mr.end(),   "Unaligned end"  );
   CardValue* cur  = byte_for(mr.start());
   CardValue* last = byte_after(mr.last());
-  while (cur < last) {
+  while (cur < last) { //refhere
     *cur = dirty_card;
     cur++;
   }

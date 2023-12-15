@@ -1537,13 +1537,14 @@ static void reset_teraflag(oop current_obj){
 
 static void iterate_h2(void action(oop)){
   HeapWord* curr_reg_start = (HeapWord*) (Universe::teraHeap()->get_h2_first_obj());
-  HeapWord* curr;;
+  HeapWord* curr, *curr_reg_end;
   size_t region_array_size = Universe::teraHeap()->get_h2_region_no();
 
   for(size_t region_no=0; region_no<region_array_size; region_no++){
     curr = curr_reg_start;
+    curr_reg_end = (HeapWord*)Universe::teraHeap()->get_region_meta((char*) curr)->last_allocated_end;
 
-    while(Universe::teraHeap()->check_if_valid_object(curr)){
+    while(curr < curr_reg_end && Universe::teraHeap()->check_if_valid_object(curr)){
       oop obj = cast_to_oop(curr);
       action(obj);
       curr += obj->size();
