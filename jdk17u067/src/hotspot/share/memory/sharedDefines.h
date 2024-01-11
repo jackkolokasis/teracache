@@ -147,7 +147,7 @@
 
 #define UREGIONS_SIZE 10                 
 
-#define H2_TRANSFER_STATS 1 // 
+#define H2_TRANSFER_STATS 1 // Prints Stats for transfers from H2 to H1(warning slow: iterates all H2 objects)
 
 #define REFERENCES_MEMORY   500 //Memory optimization policy with forward reference counters
 #define CARDS_MEMORY        501 //Memory optimization policy using card tables

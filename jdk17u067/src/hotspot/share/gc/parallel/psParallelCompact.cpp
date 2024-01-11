@@ -100,7 +100,7 @@ HeapWord *memptr_end_prev = NULL;
 
 //Transfer Stats counters
 uint64_t total_garbage = 0, transfer_back_garbage = 0;
-uint64_t total_alive = 0, transfer_back_alive = 0;
+uint64_t total_alive_pure = 0, total_alive_mixed = 0, transfer_back_alive_mixed, transfer_back_alive_pure = 0;
 uint64_t moved_to_h2 = 0;
 uint64_t gcs_sum_alive_mb = 0, gcs_sum_dead_mb = 0;
 uint64_t total_back_transfers=0, total_mb_transfered_back=0;
@@ -1522,20 +1522,41 @@ uint64_t PSParallelCompact::move_h2_regions(struct underpopulated_regions *uregi
   return total_diff;
 }
 
-static void count_garbage_alive(oop current_obj){
-  if(current_obj->get_h2_dst_addr() == 544){
-    total_alive += current_obj->size() * 8;
-  }
-  else {
-    total_garbage += current_obj->size() * 8;
+static void iterate_h2_count(){
+  HeapWord* curr_reg_start = (HeapWord*) (Universe::teraHeap()->get_h2_first_obj());
+  HeapWord* curr, *curr_reg_end;
+  size_t region_array_size = Universe::teraHeap()->get_h2_region_no();
+
+  for(size_t region_no=0; region_no<region_array_size; region_no++){
+    curr = curr_reg_start;
+    curr_reg_end = (HeapWord*)Universe::teraHeap()->get_region_meta((char*) curr)->last_allocated_end;
+
+    uint64_t alive_buffer = 0;
+    bool pure_region = true;
+    while(curr < curr_reg_end && Universe::teraHeap()->check_if_valid_object(curr)){
+      oop obj = cast_to_oop(curr);
+      
+      if(obj->get_h2_dst_addr() == 544){
+        alive_buffer += obj->size() * 8;
+      }
+      else {
+        total_garbage += obj->size() * 8;
+        pure_region = false;
+      }
+
+      curr += obj->size();
+    }
+
+    if(pure_region)
+      total_alive_pure += alive_buffer;
+    else
+      total_alive_mixed += alive_buffer;
+
+    curr_reg_start += Universe::teraHeap()->get_region_size()/8;
   }
 }
 
-static void reset_teraflag(oop current_obj){
-  current_obj->set_h2_dst_addr(0);
-}
-
-static void iterate_h2(void action(oop)){
+static void iterate_h2_reset(){
   HeapWord* curr_reg_start = (HeapWord*) (Universe::teraHeap()->get_h2_first_obj());
   HeapWord* curr, *curr_reg_end;
   size_t region_array_size = Universe::teraHeap()->get_h2_region_no();
@@ -1546,7 +1567,7 @@ static void iterate_h2(void action(oop)){
 
     while(curr < curr_reg_end && Universe::teraHeap()->check_if_valid_object(curr)){
       oop obj = cast_to_oop(curr);
-      action(obj);
+      obj->set_h2_dst_addr(0);
       curr += obj->size();
     }
 
@@ -1558,18 +1579,26 @@ void count_garbage_transfered(underpopulated_regions* uregions){
   for(size_t region_no=0; region_no<uregions->size; region_no++){
     HeapWord* curr = (HeapWord*) uregions->move_regions_list[region_no]->first_allocated_start;
 
+    uint64_t alive_buffer = 0;
+    bool pure_region = true;
     while(Universe::teraHeap()->check_if_valid_object(curr)){
       oop obj = cast_to_oop(curr);
       
       if(obj->get_h2_dst_addr() == 544){
-        transfer_back_alive += obj->size() * 8;
+        alive_buffer += obj->size() * 8;
       }
       else {
         transfer_back_garbage += obj->size() * 8;
+        pure_region = false;
       }
 
       curr += obj->size();
     }
+
+    if(pure_region)
+      transfer_back_alive_pure += alive_buffer;
+    else
+      transfer_back_alive_mixed += alive_buffer;
   }
 }
 
@@ -2379,13 +2408,15 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 
 #if H2_TRANSFER_STATS
   total_garbage = 0;
-  total_alive = 0;
-  transfer_back_alive = 0;
+  total_alive_mixed = 0;
+  total_alive_pure = 0;
+  transfer_back_alive_mixed = 0;
+  transfer_back_alive_pure = 0;
   transfer_back_garbage = 0;
   moved_to_h2 = 0;
 
   if(EnableTeraHeap){
-    iterate_h2(reset_teraflag);
+    iterate_h2_reset();
   }
 #endif
 
@@ -2501,9 +2532,10 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 
 #if H2_TRANSFER_STATS
     if(EnableTeraHeap)
-      iterate_h2(count_garbage_alive);
+      iterate_h2_count();
 
-      fprintf(stderr, "\nTransfer Stats: First Count Total Alive %" PRIu64 "mb\n", total_alive/1048576);
+      fprintf(stderr, "\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_mixed/1048576);
+      fprintf(stderr, "\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_pure/1048576);
       fprintf(stderr, "Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
 #endif
 
@@ -2557,15 +2589,16 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     if(EnableTeraHeap){
       count_garbage_transfered(uregions);
 
-      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive %" PRIu64 "mb\n", transfer_back_alive/1048576);
+      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Mixed %" PRIu64 "mb\n", transfer_back_alive_mixed/1048576);
+      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Pure %" PRIu64 "mb\n", transfer_back_alive_pure/1048576);
       fprintf(stderr, "Transfer Stats: Transfered Back Total Garbage %" PRIu64 "mb\n", transfer_back_garbage/1048576);
 
       fprintf(stderr, "\nTransfer Stats: Alive Moved to H2 this GC %" PRIu64 "mb\n", moved_to_h2/1048576);
 
-      fprintf(stderr, "\nTransfer Stats: end of GC TOTAL alive: %" PRIu64 "mb\n", (total_alive - transfer_back_alive + moved_to_h2) / 1048576);
+      fprintf(stderr, "\nTransfer Stats: end of GC TOTAL alive: %" PRIu64 "mb\n", (total_alive_mixed+total_alive_pure - transfer_back_alive_mixed - transfer_back_alive_pure + moved_to_h2) / 1048576);
       fprintf(stderr, "Transfer Stats: end of GC TOTAL garbage: %" PRIu64 "mb\n", (total_garbage - transfer_back_garbage) / 1048576);
 
-      gcs_sum_alive_mb += transfer_back_alive / 1048576;
+      gcs_sum_alive_mb += (transfer_back_alive_mixed+transfer_back_alive_pure) / 1048576;
       gcs_sum_dead_mb += transfer_back_garbage / 1048576;
 
       fprintf(stderr, "\nTransfer Stats: ALL GCs TRANSFER BACK alive: %" PRIu64 "mb\n", gcs_sum_alive_mb);
