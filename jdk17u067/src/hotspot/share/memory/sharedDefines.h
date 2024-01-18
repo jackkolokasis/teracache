@@ -153,6 +153,6 @@
 #define CARDS_MEMORY        501 //Memory optimization policy using card tables
 #define PERFORMANCE         502 //Policy aiming for performance speed up by transfering 'hot' objects
 
-#define TRANSFER_POLICY     REFERENCES_MEMORY //Select one of the above policies
+#define TRANSFER_POLICY     CARDS_MEMORY //Select one of the above policies
 
 #endif  // SHARE_MEMORY_SHAREDDEFINES_H

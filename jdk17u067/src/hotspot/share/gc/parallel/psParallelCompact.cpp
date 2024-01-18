@@ -1094,13 +1094,6 @@ HeapWord *ParallelCompactData::h2_calc_new_pointer(HeapWord *addr) const
 
   assert((h2_obj_region->destination_address + obj_offset) == (uint64_t)result, "Conversion error to HeapWord*");
 
-  // fprintf(stderr, "Adjusting pointer to point to %p\n", result);
-
-  // #if H2_MOVE_DEBUG_PRINT
-  //   count_m.lock();
-  //   test_check_refs++;
-  //   count_m.unlock();
-  // #endif
 
   #if H2_MOVE_BACK
   return result;
@@ -2417,6 +2410,15 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 
   if(EnableTeraHeap){
     iterate_h2_reset();
+
+    #if TRANSFER_POLICY == CARDS_MEMORY
+      BarrierSet* bs = BarrierSet::barrier_set();
+      CardTableBarrierSet* ctbs = barrier_set_cast<CardTableBarrierSet>(bs);
+      CardTable* ct = ctbs->card_table();
+      fprintf(stderr, "### About to clean\n");
+      ct->th_clean_cards((HeapWord*)Universe::teraHeap()->h2_start_addr(), (HeapWord*)Universe::teraHeap()->h2_end_addr());
+      fflush(stderr);
+    #endif
   }
 #endif
 
@@ -2534,9 +2536,9 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     if(EnableTeraHeap)
       iterate_h2_count();
 
-      fprintf(stderr, "\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_mixed/1048576);
-      fprintf(stderr, "\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_pure/1048576);
-      fprintf(stderr, "Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
+    fprintf(stderr, "\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_mixed/1048576);
+    fprintf(stderr, "\nTransfer Stats: First Count Total Alive Pure %" PRIu64 "mb\n", total_alive_pure/1048576);
+    fprintf(stderr, "Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
 #endif
 
     bool max_on_system_gc = UseMaximumCompactionOnSystemGC && GCCause::is_user_requested_gc(gc_cause);
@@ -2587,7 +2589,9 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 
 #if H2_TRANSFER_STATS
     if(EnableTeraHeap){
-      count_garbage_transfered(uregions);
+      #if H2_MOVE_BACK
+        count_garbage_transfered(uregions);
+      #endif
 
       fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Mixed %" PRIu64 "mb\n", transfer_back_alive_mixed/1048576);
       fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Pure %" PRIu64 "mb\n", transfer_back_alive_pure/1048576);
@@ -2628,6 +2632,12 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 #if H2_MOVE_BACK
       if(uregions)
         Universe::teraHeap()->free_uregions(uregions);
+#endif
+#if TRANSFER_POLICY == CARDS_MEMORY
+    BarrierSet* bs = BarrierSet::barrier_set();
+    CardTableBarrierSet* ctbs = barrier_set_cast<CardTableBarrierSet>(bs);
+    CardTable* ct = ctbs->card_table();
+    ct->th_clean_cards((HeapWord*)Universe::teraHeap()->h2_start_addr(), (HeapWord*)Universe::teraHeap()->h2_end_addr());
 #endif
 
       // Wait to complete all the transfers to H2 and then continue

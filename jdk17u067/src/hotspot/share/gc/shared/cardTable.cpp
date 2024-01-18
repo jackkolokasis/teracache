@@ -556,6 +556,9 @@ void CardTable::th_write_ref_field(void *obj) {
 }
 
 void CardTable::th_clean_cards(HeapWord *start, HeapWord* end) {
+#if H2_MOVE_DEBUG_PRINT
+  fprintf(stderr, "### Entered th clean || Start = %p | End = %p\n", start, end);
+#endif
   assert((HeapWord*)align_down((uintptr_t)start, HeapWordSize) == start, "Unaligned start");
   assert((HeapWord*)align_up  ((uintptr_t)end,   HeapWordSize) == end,   "Unaligned end"  );
   CardValue* cur  = byte_for(start);
@@ -565,8 +568,14 @@ void CardTable::th_clean_cards(HeapWord *start, HeapWord* end) {
   // writes. We need to remove protection for the specific address
   // range
   os::protect_memory((char *) cur, (last-cur)-1, os::MEM_PROT_RW);
-
+#if H2_MOVE_DEBUG_PRINT
+  fprintf(stderr, "### Memset!\n");
+#endif
   memset(cur, clean_card, (last-cur)-1);
+
+#if H2_MOVE_DEBUG_PRINT
+  fprintf(stderr, "### Cards cleaned!\n");
+#endif
 }
 
 void CardTable::th_num_dirty_cards(HeapWord *start, HeapWord* end, bool before) {

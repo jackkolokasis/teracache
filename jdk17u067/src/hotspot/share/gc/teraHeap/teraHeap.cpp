@@ -520,7 +520,20 @@ uint64_t TeraHeap::h2_get_region_partId(void* p) {
 // Marks the region containing obj as used
 void TeraHeap::mark_used_region(HeapWord *obj, size_t thread_worker_no) {
   mark_used((char *) obj);
-  increment_region_rc(obj, thread_worker_no);
+
+  #if (TRANSFER_POLICY==REFERENCES_MEMORY)
+    increment_region_rc(obj, thread_worker_no);
+  #elif (TRANSFER_POLICY==CARDS_MEMORY)
+    BarrierSet* bs = BarrierSet::barrier_set();
+    CardTableBarrierSet* ctbs = barrier_set_cast<CardTableBarrierSet>(bs);
+    CardTable* ct = ctbs->card_table();
+    assert(is_field_in_h2((void *) obj), "Shoud be in H2");
+
+    if( *(ct->byte_for(obj)) != CardTable::dirty_card_val()){
+      TeraHeap::increment_region_rc(obj, thread_worker_no);
+      ct->th_write_ref_field(obj);
+    }
+  #endif
 
 #if H2_TRANSFER_STATS
   cast_to_oop(obj)->set_h2_dst_addr(544);
