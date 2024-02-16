@@ -308,7 +308,7 @@ public:
 
   // Wrapper function for get_ref_counter_sum
   // file: project_dir/allocator/include/segment.h
-  long unsigned get_region_rc(struct region* reg);
+  long unsigned get_region_rc(char* reg);
 
   // Wrapper function for get_region_metadata
   // file: project_dir/allocator/include/segment.h
@@ -326,7 +326,15 @@ public:
 
   // Reads from nvme the region and copies it to the BUFFER
   // Returns 0 on success and negative int on error
-  int get_region_copy(struct region* reg_meta, char* BUFFER);
+  int get_region_copy(unsigned index, char* BUFFER);
+
+  uint64_t get_reg_allocated_size(char* reg);
+
+  //for debugging
+  long double calculate_region_transfer_heuristic(region* reg); 
+
+  //wrapper for allocator function increment_object_counter
+  void increment_obj_counter(HeapWord* h2_addr);
 
   void mark_for_transfer_to_H2(HeapWord* h2_destination_address);
 
@@ -336,19 +344,38 @@ public:
   // file: project_dir/allocator/include/segment.h
   void h2_print_reg_metadata(FILE* stream);
 
-  //returns the N most underpopulated regions
-  //Argument: the max amount of regions that will be returned
+  //Selects underpopulated regions
   //Wrapper for get_underpopulated_regions
   // file: project_dir/allocator/include/segment.h
-  struct underpopulated_regions* get_underpopulated_regs(unsigned region_amount);
- 
-  void free_uregions(struct underpopulated_regions* uregions);
+  void get_underpopulated_regs();
 
   //sets the destination address of the region
-  //Argument: the region and the new destination address
+  //Argument: the region index in transfer_regions and the new destination address
   //Wrapper for set_destination_address
   // file: project_dir/allocator/include/segment.h
-  void set_destination_addr(struct region* reg, uint64_t new_addr);
+  void set_destination_addr(unsigned index, uint64_t new_addr);
+
+  uint64_t get_destination_addr(unsigned index);
+
+  size_t get_tregions_size();
+
+  size_t get_tregions_capacity();
+
+  void reduce_tregions_size(size_t new_size);
+
+  uint64_t get_allocated_start_addr(unsigned index);
+
+  uint64_t get_allocated_end_addr(unsigned index);
+
+  void set_tregion_diff(unsigned index, uint64_t new_diff);
+
+  uint64_t get_tregion_diff(unsigned index);
+
+  uint32_t get_tregion_rdd_id(unsigned index);
+
+  uint32_t get_tregion_part_id(unsigned index);
+
+  long unsigned get_reg_obj_count(char* reg);
 
   //returns region size
   //Wrapper for region_size

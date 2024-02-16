@@ -145,13 +145,13 @@
 
 #define H2_MOVE_DEBUG_PRINT 0
 
-#define UREGIONS_SIZE 10                 
+#define H2_REGIONS_ANALYSIS 0              
 
 #define H2_TRANSFER_STATS 1 // Prints Stats for transfers from H2 to H1(warning slow: iterates all H2 objects)
 
 #define REFERENCES_MEMORY   500 //Memory optimization policy with forward reference counters
 #define CARDS_MEMORY        501 //Memory optimization policy using card tables
-#define PERFORMANCE         502 //Policy aiming for performance speed up by transfering 'hot' objects
+//#define PERFORMANCE         502 //Policy aiming for performance speed up by transfering 'hot' objects
 
 #define TRANSFER_POLICY     CARDS_MEMORY //Select one of the above policies
 

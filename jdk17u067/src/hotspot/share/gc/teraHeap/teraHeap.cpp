@@ -688,7 +688,7 @@ void TeraHeap::increment_region_rc(HeapWord* obj, unsigned worker_id){
 
 // Wrapper function for get_ref_counter_sum
 // file: project_dir/allocator/include/segment.h
-long unsigned TeraHeap::get_region_rc(struct region* reg){
+long unsigned TeraHeap::get_region_rc(char* reg){
 	return get_ref_counter_sum(reg);
 }
 
@@ -711,6 +711,19 @@ void TeraHeap::validate_rc_reset(){
   check_if_ref_reset();
 }
 
+uint64_t TeraHeap::get_reg_allocated_size(char* reg){
+  return get_region_allocated_size(reg);
+}
+
+long double TeraHeap::calculate_region_transfer_heuristic(region* reg){
+  return calculate_region_heuristic(reg);
+}
+
+//wrapper for allocator function increment_object_counter
+void TeraHeap::increment_obj_counter(HeapWord* h2_addr){
+  increment_object_count((char*) h2_addr);
+}
+
 // returns the H2 region number
 size_t TeraHeap::get_region_number(char* obj){
   return get_region_index(obj);
@@ -718,8 +731,8 @@ size_t TeraHeap::get_region_number(char* obj){
 
 // Reads from nvme the region and copies it to the BUFFER
 // Returns 0 on success and negative int on error
-int TeraHeap::get_region_copy(struct region* reg_meta, char* BUFFER){
-  return copy_region(reg_meta, BUFFER);
+int TeraHeap::get_region_copy(unsigned index, char* BUFFER){
+  return copy_region(index, BUFFER);
 }
 
 void TeraHeap::mark_for_transfer_to_H2(HeapWord* h2_destination_address){
@@ -734,24 +747,63 @@ void TeraHeap::h2_print_reg_metadata(FILE* stream){
 	print_regions_metadata(stream);
 }
 
-//returns the N most underpopulated regions
-//Argument: the max amount of regions that will be returned
+//Selects most underpopulated regions
 //Wrapper for get_underpopulated_regions
 // file: project_dir/allocator/include/segment.h
-struct underpopulated_regions* TeraHeap::get_underpopulated_regs(unsigned region_amount){
-	return get_underpopulated_regions(region_amount);
-}
-
-void TeraHeap::free_uregions(struct underpopulated_regions* uregions){
-  free_underpopulated_regions(uregions);
+void TeraHeap::get_underpopulated_regs(){
+	get_underpopulated_regions();
 }
 
 //sets the destination address of the region
-//Argument: the region and the new destination address
+//Argument: the region index in transfer_regions and the new destination address
 //Wrapper for set_destination_address
 // file: project_dir/allocator/include/segment.h
-void TeraHeap::set_destination_addr(struct region* reg, uint64_t new_addr){
-	set_destination_address(reg, new_addr);
+void TeraHeap::set_destination_addr(unsigned index, uint64_t new_addr){
+	set_destination_address(index, new_addr);
+}
+
+uint64_t TeraHeap::get_destination_addr(unsigned index){
+  return get_destination_address(index);
+}
+
+size_t TeraHeap::get_tregions_size(){
+  return get_transfer_regions_size();
+}
+
+size_t TeraHeap::get_tregions_capacity(){
+  return get_transfer_regions_capacity();
+}
+
+void TeraHeap::reduce_tregions_size(size_t new_size){
+  reduce_transfer_regions_size(new_size);
+}
+
+uint64_t TeraHeap::get_allocated_start_addr(unsigned index){
+  return get_allocated_start_address(index);
+}
+
+uint64_t TeraHeap::get_allocated_end_addr(unsigned index){
+  return get_allocated_end_address(index);
+}
+
+void TeraHeap::set_tregion_diff(unsigned index, uint64_t new_diff){
+  set_region_diff(index, new_diff);
+}
+
+uint64_t TeraHeap::get_tregion_diff(unsigned index){
+  return get_region_diff(index);
+}
+
+uint32_t TeraHeap::get_tregion_rdd_id(unsigned index){
+  return get_tregion_rddid(index);
+}
+
+uint32_t TeraHeap::get_tregion_part_id(unsigned index){
+  return get_tregion_partid(index);
+}
+
+long unsigned TeraHeap::get_reg_obj_count(char* reg){
+  return get_object_count(reg);
 }
 
 //returns the objects offser from the start of the region
