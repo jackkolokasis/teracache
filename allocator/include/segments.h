@@ -5,6 +5,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define TRANSFER_REGIONS_CAPACITY 50 ///< Max regions that can be transferred back 
+													// in one major gc
+#define TRANSFER_BACK_THREASHOLD  30.0 //< regions with heuristic value under this
+                                                    // will be tranferred back to H1
+
 #define ANONYMOUS 0
 #define PR_BUFFER 1						
 #define PR_BUFFER_SIZE (2*1024LU*1024) /* Promotion buffer size */
@@ -50,6 +55,7 @@ struct region{
     char *first_allocated_start;
     struct group *dependency_list;
     long unsigned ref_counter[8];
+    long unsigned object_count;
     uint64_t destination_address;
     uint64_t diff;
     bool underTransfer;
@@ -70,25 +76,17 @@ struct region{
  * An array of N pointers to underpopulated regions that should be moved to H1
  */
 struct underpopulated_regions{
-    struct region **move_regions_list;
-    size_t size;
+    struct region *move_regions_list[TRANSFER_REGIONS_CAPACITY];
     size_t capacity;
-    long unsigned max_references;
-    long unsigned min_references;
+    size_t size;
+    struct region * max_heuristic;
 };
 
 /*
- * Will return an underpopulated_regions struct that will
- * contain the 'amount_of_regions' most underpopulated regions
- * Arguments: amount_of_regions: the struct will cointain at most
- * the 'amount_of_regions' most underpopulated regions
+ * Will select the regions with the largest amount of garbage objects
+ * based on the value that "calculate_region_heuristic(region*)" returns
  */
-struct underpopulated_regions* get_underpopulated_regions(long unsigned amount_of_regions);
-
-/*
- * Frees underpopulated_regions struct
- */
-void free_underpopulated_regions(struct underpopulated_regions *ptr);
+void get_underpopulated_regions();
 
 /*
  * Initialize region array, group array and their fields
@@ -109,6 +107,11 @@ char* new_region(size_t size);
  * part_id: The id of the partition that the object belongs
  */
 char* allocate_to_region(size_t size, uint64_t rdd_id, uint64_t partition_id);
+
+/*
+ * 
+ */
+long double calculate_region_heuristic(struct region* reg);
 
 uint64_t get_id(uint64_t rdd_id, uint64_t partition_id);
 
@@ -150,7 +153,7 @@ void check_if_ref_reset();
  * Sums the ref_counter array  of a region and returns it
  * Arguments: region whose ref_counter sum is needed
  */
-long unsigned get_ref_counter_sum(struct region* reg);
+long unsigned get_ref_counter_sum(char* reg);
 
 /*
  * Increases the objects's region reference counter
@@ -174,6 +177,21 @@ struct region* get_region_metadata(char *obj);
  */
 char* get_h2_first_object();
 
+/*
+ * Returns the allocated size of the region in bytes
+ */
+uint64_t get_region_allocated_size(char* reg);
+
+
+/*
+ * Increases the objects's region object counter
+ * Arguments: obj: Object whose object counter will be incremented
+ */
+void increment_object_count(char* obj);
+
+/* 
+ *Returns the total number of regions
+ */
 size_t get_h2_region_number();
 
 /*
@@ -181,13 +199,66 @@ size_t get_h2_region_number();
  * if it is not already set
  * Arguments: obj: Object whose region destination address will be set
  */
-void set_destination_address(struct region* reg, uint64_t destination_address);
+void set_destination_address(unsigned index, uint64_t destination_address);
 
 /*
  * Returns the destination address of the object's region,
- * Arguments: obj: Object whose region destination address will be returned
+ * Arguments: index of region whose region destination address will be returned
  */
-uint64_t get_destination_address(struct region *reg);
+uint64_t get_destination_address(unsigned index);
+
+/*
+ * Returns the size of transfer_regions
+ */
+size_t get_transfer_regions_size();
+
+/*
+ * Returns the capacity of transfer_regions
+ */
+size_t get_transfer_regions_capacity();
+
+/*
+ * Reduces size of transfer_regions
+ */
+void reduce_transfer_regions_size(size_t new_size);
+
+/*
+ * Returns the first allocated start address of the region,
+ * Arguments: index of region whose start address address will be returned
+ */
+uint64_t get_allocated_start_address(unsigned index);
+
+/*
+ * Returns the last allocated end address of the region,
+ * Arguments: index of region whose end address address will be returned
+ */
+uint64_t get_allocated_end_address(unsigned index);
+
+/*
+ * Sets the diff of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions, the new diff
+ */
+void set_region_diff(unsigned index, uint64_t diff);
+
+/*
+ * Returns the diff of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions
+ */
+uint64_t get_region_diff(unsigned index);
+
+/*
+ * Returns the rdd_id of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions
+ */
+uint32_t get_tregion_rddid(unsigned index);
+
+/*
+ * Returns the part_id of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions
+ */
+uint32_t get_tregion_partid(unsigned index);
+
+long unsigned get_object_count(char* reg);
 
 /*
  * Prints all regions and certain metadata
@@ -243,7 +314,7 @@ void print_used_regions();
  * Arguments: Region to be copied, and a BUFFER of size REGION_SIZE
  * Return:    zero on success, negative on failure 
  */
-int copy_region(struct region* reg, char* BUFFER);
+int copy_region(unsigned index, char* BUFFER);
 
 /*
  * Marks a region where objects will arrive in the current gc from the H1 Heap

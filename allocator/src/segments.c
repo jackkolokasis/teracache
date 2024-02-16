@@ -18,6 +18,8 @@ struct offset *offset_list;
 int32_t		 region_enabled;
 int32_t		 _next_region;
 
+struct underpopulated_regions transfer_regions;
+
 #if STATISTICS
 uint32_t    total_deps = 0;
 double		  alloc_elapsedtime = 0.0;
@@ -46,6 +48,7 @@ void init_regions(){
     region_array[i].destination_address       = 0;
     region_array[i].move_flg                  = 0;
     region_array[i].underTransfer             = 0;
+    region_array[i].object_count              = 0;
     for(size_t j=0; j<WORKER_THREADS_NUM; j++){
 	    region_array[i].ref_counter[j] = 0;
     }
@@ -350,67 +353,35 @@ void check_for_group(char *obj){
         mark_used(region_array[seg2].start_address);
 }
 
-static void find_set_max_min(struct underpopulated_regions* uregions){
-	uregions->max_references = 0;
-        uregions->min_references = ULONG_MAX;
-
-	for(size_t i=0; i<uregions->size; i++){
-		if(uregions->max_references < get_ref_counter_sum(uregions->move_regions_list[i]))
-			uregions->max_references = get_ref_counter_sum(uregions->move_regions_list[i]);
-		if(uregions->min_references > get_ref_counter_sum(uregions->move_regions_list[i]))
-                        uregions->min_references = get_ref_counter_sum(uregions->move_regions_list[i]);
-	}
-}	
-
-/*
- * Will return an underpopulated_regions struct that will
- * contain the 'amount_of_regions' most underpopulated regions
- * Arguments: amount_of_regions: the struct will cointain at most
- * the 'amount_of_regions' most underpopulated regions
- */
-struct underpopulated_regions* get_underpopulated_regions(long unsigned amount_of_regions){
-	assertf(amount_of_regions < REGION_ARRAY_SIZE,
-			"amount_of_regions in get_underpopulated_regions is %lu, which exceeds total amount of regions %lu", 
-			amount_of_regions, REGION_ARRAY_SIZE/REGION_SIZE);
-	
-	struct underpopulated_regions *new_uregions = malloc(sizeof(struct underpopulated_regions));
-	new_uregions->move_regions_list = malloc(amount_of_regions*sizeof(struct region*));
-	new_uregions->capacity = amount_of_regions;
-	new_uregions->size = 0;
-	new_uregions->max_references = 0;
-	new_uregions->min_references = ULONG_MAX;
-	
-	for(size_t current_reg = 0; current_reg < REGION_ARRAY_SIZE; current_reg++){
-		if(region_array[current_reg].start_address == region_array[current_reg].last_allocated_end ||
-				get_ref_counter_sum(&region_array[current_reg])==0 ||
-        region_array[current_reg].underTransfer)
-			continue;
-
-		if(new_uregions->size < new_uregions->capacity)
-			new_uregions->move_regions_list[new_uregions->size++] = &region_array[current_reg];
-		else if( get_ref_counter_sum(&region_array[current_reg]) < new_uregions->max_references){
-			for(size_t i=0; i<new_uregions->size; i++){
-				if(get_ref_counter_sum(new_uregions->move_regions_list[i]) == new_uregions->max_references){
-					new_uregions->move_regions_list[i] = &region_array[current_reg];
-					break;
-				}
-			}	
-		}
-		else{}
-		
-		find_set_max_min(new_uregions);
-	}
-	return new_uregions;
+uint64_t get_region_allocated_size(char* reg){
+  struct region* reg_meta = get_region_metadata(reg);
+  return reg_meta->last_allocated_end > reg_meta->start_address ? 
+    reg_meta->last_allocated_end - reg_meta->start_address:
+    0
+  ;
 }
 
 /*
- * Frees underpopulated_regions struct
+ * Will select the regions with the largest amount of garbage objects
+ * based on the value that "calculate_region_heuristic(region*)" returns
  */
-void free_underpopulated_regions(struct underpopulated_regions *ptr){
-	assertf(ptr && ptr->move_regions_list,
-			"Pointer to struct underpopulated_regions is null, or move_regions_list is null");
-	free(ptr->move_regions_list);
-	free(ptr);
+void get_underpopulated_regions(){
+	
+  transfer_regions.capacity = TRANSFER_REGIONS_CAPACITY;
+	transfer_regions.size = 0;
+	transfer_regions.max_heuristic = NULL;
+	
+	for(size_t current_reg = 0; current_reg < REGION_ARRAY_SIZE; current_reg++){
+		if(region_array[current_reg].start_address == region_array[current_reg].last_allocated_end ||
+				get_ref_counter_sum(region_array[current_reg].start_address)==0 ||
+        region_array[current_reg].underTransfer)
+			continue;
+
+		if(transfer_regions.size < transfer_regions.capacity && calculate_region_heuristic(&region_array[current_reg]) < TRANSFER_BACK_THREASHOLD)
+			transfer_regions.move_regions_list[transfer_regions.size++] = &region_array[current_reg];
+		else if(transfer_regions.size >= transfer_regions.capacity)
+      break;
+	}
 }
 
 /*
@@ -432,11 +403,20 @@ void print_groups(){
 }
 
 /*
+ *
+ */
+long double calculate_region_heuristic(struct region* reg){
+    return (long double)(get_ref_counter_sum(reg->start_address)*1000) / reg->object_count;
+}
+
+/*
  * Resets the used field of all regions and groups
  */
 void reset_used(){
     int32_t i;
     for (i = 0 ; i < REGION_ARRAY_SIZE ; i++){
+        if(!region_array[i].used)
+          region_array[i].object_count = 0;
         region_array[i].used = 0;
         region_array[i].underTransfer = 0;
 
@@ -595,10 +575,11 @@ uint64_t region_size(){
  * Sums the ref_counter array  of a region and returns it
  * Arguments: region whose ref_counter sum is needed
  */
-long unsigned get_ref_counter_sum(struct region* reg){
+long unsigned get_ref_counter_sum(char* reg){
+  struct region* reg_meta = get_region_metadata(reg);
 	long unsigned sum=0;
 	for(size_t i=0; i<WORKER_THREADS_NUM; i++){
-		sum += reg->ref_counter[i];
+		sum += reg_meta->ref_counter[i];
 	}
 	return sum;
 }
@@ -612,6 +593,14 @@ void increment_ref_counter(char *obj, unsigned worker_id){
 		assertf(current_region,
 				"get_region_metadata returned Null pointer");
 	current_region->ref_counter[worker_id]++;
+}
+
+/*
+ * Increases the objects's region object counter
+ * Arguments: obj: Object whose object counter will be incremented
+ */
+void increment_object_count(char* obj){
+  get_region_metadata(obj)->object_count++;
 }
 
 /*
@@ -649,19 +638,97 @@ size_t get_h2_region_number(){
  * if it is not already set
  * Arguments: obj: Object whose region destination address will be set
  */
-void set_destination_address(struct region* reg, uint64_t destination_address){
-		assertf(reg, "region pointer passed to set_destination_address is Null");
-  
-	reg->destination_address = destination_address;
+void set_destination_address(unsigned index, uint64_t destination_address){
+	assertf(index<transfer_regions.capacity && index<transfer_regions.size, "Index must be smaller than size and capacity");
+	transfer_regions.move_regions_list[index]->destination_address = destination_address;
 }
 
 /*
  * Returns the destination address of the object's region,
  * Arguments: obj: Object whose region destination address will be returned
  */
-uint64_t get_destination_address(struct region* reg){
-                assertf(reg, "region prointer passed to get_detination_address is Null");
-	return reg->destination_address;
+uint64_t get_destination_address(unsigned index){
+  assertf(index<transfer_regions.capacity && index<transfer_regions.size, "Index must be smaller than size and capacity");
+	return transfer_regions.move_regions_list[index]->destination_address;
+}
+
+/*
+ * Returns the size of transfer_regions
+ */
+size_t get_transfer_regions_size(){
+  return transfer_regions.size;
+}
+
+/*
+ * Returns the capacity of transfer_regions
+ */
+size_t get_transfer_regions_capacity(){
+  return transfer_regions.capacity;
+}
+
+/*
+ * Reduces size of transfer_regions
+ */
+void reduce_transfer_regions_size(size_t new_size){
+  assertf(new_size<transfer_regions.capacity && new_size<transfer_regions.size, "new_size must be smaller than size and capacity");
+  transfer_regions.size = new_size;
+}
+
+/*
+ * Returns the first allocated start address of the region,
+ * Arguments: index of region whose start address address will be returned
+ */
+uint64_t get_allocated_start_address(unsigned index){
+  assertf(index<transfer_regions.capacity && index<transfer_regions.size, "Index must be smaller than size and capacity");
+  return (uint64_t)transfer_regions.move_regions_list[index]->first_allocated_start;
+}
+
+/*
+ * Returns the last allocated end address of the region,
+ * Arguments: index of region whose end address address will be returned
+ */
+uint64_t get_allocated_end_address(unsigned index){
+  assertf(index<transfer_regions.capacity && index<transfer_regions.size, "Index must be smaller than size and capacity");
+  return (uint64_t)transfer_regions.move_regions_list[index]->last_allocated_end;
+}
+
+/*
+ * Sets the diff of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions, the new diff
+ */
+void set_region_diff(unsigned index, uint64_t new_diff){
+  assertf(index<transfer_regions.capacity && index<transfer_regions.size, "Index must be smaller than size and capacity");
+  transfer_regions.move_regions_list[index]->diff = new_diff; 
+}
+
+/*
+ * Returns the diff of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions
+ */
+uint64_t get_region_diff(unsigned index){
+  assertf(index<transfer_regions.capacity && index<transfer_regions.size, "Index must be smaller than size and capacity");
+  return transfer_regions.move_regions_list[index]->diff;
+}
+
+/*
+ * Returns the rdd_id of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions
+ */
+uint32_t get_tregion_rddid(unsigned index){
+  return transfer_regions.move_regions_list[index]->rdd_id;
+}
+
+/*
+ * Returns the part_id of the region (last_allocated_end - first_allocated_start)
+ * Arguments: index in transfer_regions
+ */
+uint32_t get_tregion_partid(unsigned index){
+  return transfer_regions.move_regions_list[index]->part_id;
+}
+
+long unsigned get_object_count(char* reg){
+  struct region* reg_meta = get_region_metadata(reg);
+  return reg_meta->object_count;
 }
 
 void print_regions_metadata(FILE* stream){
@@ -669,7 +736,7 @@ void print_regions_metadata(FILE* stream){
     struct region reg = region_array[i];
     if(reg.start_address == reg.last_allocated_end) continue;
     fprintf(stream, "--------------Region No%ld--------------\n", i);
-    fprintf(stream, "Reference counter: %lu\n", get_ref_counter_sum(&reg));
+    fprintf(stream, "Reference counter: %lu\n", get_ref_counter_sum(reg.start_address));
     fprintf(stream, "References by thread:\n");
     for(size_t j=0; j<WORKER_THREADS_NUM; j++){
       fprintf(stream, "\tThread Worker ref_counter: %ld\n", reg.ref_counter[j]);
@@ -702,7 +769,9 @@ void check_if_ref_reset(){
  * Arguments: Region to be copied, and a BUFFER of size REGION_SIZE
  * Return:    zero on success, negative on failure 
  */
-int copy_region(struct region* reg, char* BUFFER){
+int copy_region(unsigned index, char* BUFFER){  
+  assertf(index<transfer_regions.capacity && index<transfer_regions.size, "Index must be smaller than size and capacity");
+  struct region* reg = transfer_regions.move_regions_list[index];
   assert(reg->start_address != reg->last_allocated_end && reg->last_allocated_end - reg->start_address <= REGION_SIZE);
   uint64_t offset = reg->first_allocated_start - tc_mem_pool.mmap_start;
 
