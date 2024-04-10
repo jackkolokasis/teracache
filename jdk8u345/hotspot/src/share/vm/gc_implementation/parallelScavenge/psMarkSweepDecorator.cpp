@@ -36,6 +36,7 @@
 
 PSMarkSweepDecorator* PSMarkSweepDecorator::_destination_decorator = NULL;
 
+extern uint64_t moved_to_h2;
 
 void PSMarkSweepDecorator::set_destination_decorator_tenured() {
   ParallelScavengeHeap* heap = (ParallelScavengeHeap*)Universe::heap();
@@ -140,6 +141,7 @@ void PSMarkSweepDecorator::precompact() {
       
       // Take a pointer from the region
       HeapWord* h2_obj_addr = (HeapWord*) Universe::teraHeap()->h2_add_object(oop(q), size);
+      moved_to_h2 += size * 8;
       assert(Universe::teraHeap()->is_obj_in_h2(oop(h2_obj_addr)), "Pointer from H2 is not valid");
 
       // Store the forwarding pointer into the mark word

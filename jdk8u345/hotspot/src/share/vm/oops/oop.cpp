@@ -122,3 +122,17 @@ VerifyOopClosure VerifyOopClosure::verify_oop;
 
 void VerifyOopClosure::do_oop(oop* p)       { VerifyOopClosure::do_oop_work(p); }
 void VerifyOopClosure::do_oop(narrowOop* p) { VerifyOopClosure::do_oop_work(p); }
+
+#ifdef TERA_FLAG
+// Save the H2 destination address of the object. By saving the
+// destination address to the teraflag we avoid to overwrite the
+// mark word of the object
+void oopDesc::set_h2_dst_addr(uint64_t addr) {
+  _tera_flag = addr;
+}
+
+// Get the H2 destination address of the candidate object.
+uint64_t oopDesc::get_h2_dst_addr() {
+  return _tera_flag;
+}
+#endif

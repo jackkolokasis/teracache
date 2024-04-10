@@ -267,6 +267,19 @@ public:
   // Marks the region containing obj as used
   void mark_used_region(HeapWord *obj);
 
+  // Wrapper function for get_region_metadata
+  // file: project_dir/allocator/include/segment.h
+  struct region* get_region_meta(char* obj);
+
+  char* get_h2_first_obj();
+
+  size_t get_h2_region_no();
+
+  //returns region size
+  //Wrapper for region_size
+  // file: project_dir/allocator/include/segment.h
+  uint64_t get_region_size();
+
   // Prints all active regions
   void print_h2_active_regions(void);
 

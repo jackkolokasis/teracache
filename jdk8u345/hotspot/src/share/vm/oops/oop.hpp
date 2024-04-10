@@ -93,6 +93,13 @@ class oopDesc {
   markOop* mark_addr() const    { return (markOop*) &_mark; }
 
 #ifdef TERA_FLAG
+  // Save the H2 destination address of the object. By saving the
+  // destination address to the teraflag we avoid to overwrite the
+  // mark word of the object
+  void set_h2_dst_addr(uint64_t addr);
+  
+  // Get the H2 destination address of the candidate object.
+  uint64_t get_h2_dst_addr();
   // Mark an object with 'id' to be moved in H2. H2 allocator uses the
   // 'id' to locate objects with the same 'id' by to the same region.
   // 'id' is defined by the application.

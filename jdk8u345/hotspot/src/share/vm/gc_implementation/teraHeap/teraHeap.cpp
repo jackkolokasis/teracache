@@ -677,6 +677,9 @@ uint64_t TeraHeap::h2_get_region_partId(void* p) {
 // Marks the region containing obj as used
 void TeraHeap::mark_used_region(HeapWord *obj) {
     mark_used((char *) obj);
+#if H2_TRANSFER_STATS
+  cast_to_oop(obj)->set_h2_dst_addr(544);
+#endif
 }
 
 // Allocate new object 'obj' with 'size' in words in TeraHeap.
@@ -708,6 +711,27 @@ char* TeraHeap::h2_add_object(oop obj, size_t size) {
 	_start_array.th_allocate_block((HeapWord *)pos);
 
 	return pos;
+}
+
+// Wrapper function for get_region_metadata
+// file: project_dir/allocator/include/segment.h
+struct region* TeraHeap::get_region_meta(char* obj){
+	return get_region_metadata(obj);
+}
+
+char* TeraHeap::get_h2_first_obj(){
+  return get_h2_first_object();
+}
+
+size_t TeraHeap::get_h2_region_no(){
+  return get_h2_region_number();
+}
+
+//returns region size
+//Wrapper for region_size
+// file: project_dir/allocator/include/segment.h
+uint64_t TeraHeap::get_region_size(){
+  return region_size();
 }
 
 // We save the current object group 'id' for tera-marked object to
