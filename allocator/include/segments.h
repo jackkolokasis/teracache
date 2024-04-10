@@ -5,9 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define TRANSFER_REGIONS_CAPACITY 50 ///< Max regions that can be transferred back 
-													// in one major gc
-#define TRANSFER_BACK_THREASHOLD  30.0 //< regions with heuristic value under this
+#define TRANSFER_BACK_THREASHOLD  10.0 //< regions with heuristic value under this
                                                     // will be tranferred back to H1
 
 #define ANONYMOUS 0
@@ -76,7 +74,7 @@ struct region{
  * An array of N pointers to underpopulated regions that should be moved to H1
  */
 struct underpopulated_regions{
-    struct region *move_regions_list[TRANSFER_REGIONS_CAPACITY];
+    struct region **move_regions_list;
     size_t capacity;
     size_t size;
     struct region * max_heuristic;

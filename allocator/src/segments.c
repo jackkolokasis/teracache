@@ -84,7 +84,15 @@ void init_regions(){
     }
     prev = ptr;
   }
-#endif  
+#endif 
+
+  transfer_regions.move_regions_list = malloc(100*sizeof(struct region*));
+  transfer_regions.capacity = 100;
+
+  fprintf(stderr, "Allocator Conf: \n"
+    "\tTRANSFER_BACK_THREASHOLD: under %f\n",
+    TRANSFER_BACK_THREASHOLD
+  );
 }
 
 /*
@@ -361,13 +369,44 @@ uint64_t get_region_allocated_size(char* reg){
   ;
 }
 
+void swap(struct region* p1, struct region* p2)
+{
+    struct region* tmp;
+    tmp = p1;
+    p1 = p2;
+    p2 = tmp;
+}
+
+int partition(struct region** tregs, int low, int high)
+{
+    int pivot_value = calculate_region_heuristic(tregs[high]);
+    int i = (low - 1);
+
+    for (int j = low; j <= high; j++) {
+        if (calculate_region_heuristic(tregs[j]) < pivot_value) {
+            i++;
+            swap(tregs[i], tregs[j]);
+        }
+    }
+    swap(tregs[i + 1], tregs[high]);
+    return (i + 1);
+}
+
+void quicksort_transfer_regions(struct region** tregs, int low, int high){
+  if(low<high)
+  { 
+    int pi=partition(tregs,low,high);
+    
+    quicksort_transfer_regions(tregs,low,pi-1);
+    quicksort_transfer_regions(tregs,pi+1,high);
+  }
+}
+
 /*
  * Will select the regions with the largest amount of garbage objects
  * based on the value that "calculate_region_heuristic(region*)" returns
  */
 void get_underpopulated_regions(){
-	
-  transfer_regions.capacity = TRANSFER_REGIONS_CAPACITY;
 	transfer_regions.size = 0;
 	transfer_regions.max_heuristic = NULL;
 	
@@ -377,11 +416,15 @@ void get_underpopulated_regions(){
         region_array[current_reg].underTransfer)
 			continue;
 
+    if(transfer_regions.size >= transfer_regions.capacity){
+      transfer_regions.move_regions_list = realloc(transfer_regions.move_regions_list, transfer_regions.capacity * 2 * sizeof(struct region*));
+      transfer_regions.capacity *= 2;
+    }
 		if(transfer_regions.size < transfer_regions.capacity && calculate_region_heuristic(&region_array[current_reg]) < TRANSFER_BACK_THREASHOLD)
 			transfer_regions.move_regions_list[transfer_regions.size++] = &region_array[current_reg];
-		else if(transfer_regions.size >= transfer_regions.capacity)
-      break;
 	}
+
+  quicksort_transfer_regions(transfer_regions.move_regions_list, 0, transfer_regions.size-1);
 }
 
 /*
