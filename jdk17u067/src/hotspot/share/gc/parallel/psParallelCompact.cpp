@@ -1411,7 +1411,7 @@ void PSParallelCompact::post_compact(uint64_t diff)
   }
   else
   {
-    ct->invalidate(MemRegion(old_mr.start(), old_mr.end()));
+    ct->invalidate(MemRegion(old_mr.start(), old_mr.end())); //refhere
   }
 
   // Delete metaspaces for unloaded class loaders and clean up loader_data graph
@@ -1511,6 +1511,7 @@ uint64_t PSParallelCompact::move_h2_regions()
   return total_diff;
 }
 
+#if H2_TRANSFER_STATS
 static void iterate_h2_count(){
 
 #if H2_REGIONS_ANALYSIS
@@ -1584,6 +1585,7 @@ static void iterate_h2_reset(){
     curr_reg_start += Universe::teraHeap()->get_region_size()/8;
   }
 }
+#endif
 
 void count_garbage_transfered(){
   for(size_t region_no=0; region_no<Universe::teraHeap()->get_tregions_size(); region_no++){
@@ -2198,7 +2200,7 @@ void PSParallelCompact::set_up_h2_regions(SpaceId id)
       Universe::teraHeap()->get_allocated_end_addr(i) - Universe::teraHeap()->get_allocated_start_addr(i)
     );
 
-    if ((np + (Universe::teraHeap()->get_tregion_diff(i) / 8)) > _space_info[eden_space_id].space()->bottom())
+    if ( (np + (Universe::teraHeap()->get_tregion_diff(i) / 8)) > (HeapWord*)((uint64_t)_space_info[eden_space_id].space()->bottom() - (uint64_t)(0.1f*((uint64_t)_space_info[eden_space_id].space()->bottom()-(uint64_t)_space_info[old_space_id].space()->bottom())) ) )
     {
 #if H2_MOVE_DEBUG_PRINT
       fprintf(stderr, "New dest_addr would be %p, but eden top is %p\n", np + (i * reg_size), _space_info[eden_space_id].space()->bottom());

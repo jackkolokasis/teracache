@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define TRANSFER_BACK_THREASHOLD  10.0 //< regions with heuristic value under this
+#define TRANSFER_BACK_THREASHOLD  5.0 //< regions with heuristic value under this
                                                     // will be tranferred back to H1
 
 #define ANONYMOUS 0

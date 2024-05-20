@@ -145,7 +145,7 @@
 
 #define H2_MOVE_DEBUG_PRINT 0
 
-#define H2_REGIONS_ANALYSIS 0              
+#define H2_REGIONS_ANALYSIS 0          
 
 #define H2_TRANSFER_STATS 1 // Prints Stats for transfers from H2 to H1(warning slow: iterates all H2 objects)
 

@@ -369,26 +369,25 @@ uint64_t get_region_allocated_size(char* reg){
   ;
 }
 
-void swap(struct region* p1, struct region* p2)
+void swap(struct region** p1, struct region** p2)
 {
-    struct region* tmp;
-    tmp = p1;
-    p1 = p2;
-    p2 = tmp;
+    struct region* tmp = *p1;
+    *p1 = *p2;
+    *p2 = tmp;
 }
 
 int partition(struct region** tregs, int low, int high)
 {
-    int pivot_value = calculate_region_heuristic(tregs[high]);
+    long double pivot_value = calculate_region_heuristic(tregs[high]);
     int i = (low - 1);
 
     for (int j = low; j <= high; j++) {
         if (calculate_region_heuristic(tregs[j]) < pivot_value) {
             i++;
-            swap(tregs[i], tregs[j]);
+            swap(&tregs[i], &tregs[j]);
         }
     }
-    swap(tregs[i + 1], tregs[high]);
+    swap(&tregs[i + 1], &tregs[high]);
     return (i + 1);
 }
 
