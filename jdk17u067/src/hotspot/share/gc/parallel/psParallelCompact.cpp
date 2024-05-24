@@ -1355,6 +1355,8 @@ void PSParallelCompact::post_compact(uint64_t diff)
   GCTraceTime(Info, gc, phases) tm("Post Compact", &_gc_timer);
   ParCompactionManager::remove_all_shadow_regions();
 
+  HeapWord *const new_top_pretransfer = space_info[old_space_id].new_top();
+
   for (unsigned int id = old_space_id; id < last_space_id; ++id)
   {
 #ifdef TERA_MAJOR_GC
@@ -1411,7 +1413,8 @@ void PSParallelCompact::post_compact(uint64_t diff)
   }
   else
   {
-    ct->invalidate(MemRegion(old_mr.start(), old_mr.end())); //refhere
+    ct->clear(MemRegion(new_top_pretransfer, old_mr.end()));
+    ct->invalidate(MemRegion(old_mr.start(), new_top_pretransfer));
   }
 
   // Delete metaspaces for unloaded class loaders and clean up loader_data graph
