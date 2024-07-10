@@ -20,6 +20,7 @@
 
 struct _mem_pool tc_mem_pool;
 int fd;
+uint64_t used_align;
 
 intptr_t align_size_up(intptr_t size, intptr_t alignment) {
 	return align_size_up_(size, alignment);
@@ -31,6 +32,7 @@ void* align_ptr_up(void* ptr, size_t alignment) {
 
 // Initialize allocator
 void init(uint64_t align) {
+    used_align=align;
     fd = -1;
 
 #if ANONYMOUS
@@ -100,6 +102,11 @@ char* allocate(size_t size, uint64_t rdd_id, uint64_t partition_id) {
     tc_mem_pool.size += size;
     tc_mem_pool.cur_alloc_ptr = (char *) (((uint64_t) alloc_ptr) + size * HEAPWORD);
 
+    assertf(tc_mem_pool.cur_alloc_ptr >= tc_mem_pool.start_address
+			&& tc_mem_pool.cur_alloc_ptr < tc_mem_pool.stop_address,
+			"Allocation pointer out-of-bound \nCur_alloc_ptr = %p\ntc_mem_pool.start = %p\ntc_mem_pool.stop = %p\nsize=%zu\n\n"
+			, tc_mem_pool.cur_alloc_ptr, tc_mem_pool.start_address, tc_mem_pool.stop_address, size);
+
 	if (prev_alloc_ptr > tc_mem_pool.cur_alloc_ptr)
 		tc_mem_pool.cur_alloc_ptr = prev_alloc_ptr;
 
@@ -117,7 +124,8 @@ char* allocate(size_t size, uint64_t rdd_id, uint64_t partition_id) {
 char* cur_alloc_ptr() {
 	assertf(tc_mem_pool.cur_alloc_ptr >= tc_mem_pool.start_address
 			&& tc_mem_pool.cur_alloc_ptr < tc_mem_pool.stop_address,
-			"Allocation pointer out-of-bound")
+			"Allocation pointer out-of-bound \nCur_alloc_ptr = %p\ntc_mem_pool.start = %p\ntc_mem_pool.stop = %p\n\n"
+			, tc_mem_pool.cur_alloc_ptr, tc_mem_pool.start_address, tc_mem_pool.stop_address);
 
 	return tc_mem_pool.cur_alloc_ptr;
 }

@@ -37,6 +37,7 @@ extern "C" {
 	extern struct _mem_pool tc_mem_pool;	//< Allocator pool
 	extern int fd;							//< File descriptor for the opended file
 	extern int num_reqs;					//< Number of asynchronous write requests
+	extern uint64_t used_align;
 
 	// Initialize allocator with start address 'heap_end + 1'. The end of the
 	// heap.
