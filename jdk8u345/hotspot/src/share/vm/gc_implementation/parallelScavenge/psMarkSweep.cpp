@@ -118,26 +118,33 @@ void PSMarkSweep::invoke(bool maximum_heap_compaction) {
 #endif
 }
 
+#if H2_TRANSFER_STATS
 static void iterate_h2_count(){
   HeapWord* curr_reg_start = (HeapWord*) (Universe::teraHeap()->get_h2_first_obj());
   HeapWord* curr, *curr_reg_end;
   size_t region_array_size = Universe::teraHeap()->get_h2_region_no();
+  fprintf(stderr, "\nTotal reg number: %zu\n\n", Universe::teraHeap()->get_h2_region_no());
 
   for(size_t region_no=0; region_no<region_array_size; region_no++){
     curr = curr_reg_start;
     curr_reg_end = (HeapWord*)Universe::teraHeap()->get_region_meta((char*) curr)->last_allocated_end;
+    fprintf(stderr, "(Reg %4zu) || reg_start = %p || alloc_end = %p:\n", region_no, curr, curr_reg_end);
 
     uint64_t alive_buffer = 0;
     bool pure_region = true;
     while(curr < curr_reg_end && Universe::teraHeap()->check_if_valid_object(curr)){
+      fprintf(stderr, "\tcur = %p || ", curr);
       oop obj = cast_to_oop(curr);
+      fprintf(stderr, "size = %d || ", obj->size());
       
       if(obj->get_h2_dst_addr() == 544){
         alive_buffer += obj->size() * 8;
+        fprintf(stderr, "Alive\n");
       }
       else {
         total_garbage += obj->size() * 8;
         pure_region = false;
+        fprintf(stderr, "Dead\n");
       }
 
       curr += obj->size();
@@ -197,6 +204,7 @@ void count_garbage_transfered(underpopulated_regions* uregions){
       transfer_back_alive_mixed += alive_buffer;
   }
 }
+#endif
 
 // This method contains no policy. You should probably
 // be calling invoke() instead.
@@ -317,6 +325,7 @@ bool PSMarkSweep::invoke_no_policy(bool clear_all_softrefs) {
 		Universe::teraHeap()->h2_reset_used_field();
 
     #if H2_TRANSFER_STATS
+        fprintf(stderr, "========================== MAJOR GC ==========================\n\n");
         total_garbage = 0;
         total_alive_mixed = 0;
         total_alive_pure = 0;
@@ -324,24 +333,27 @@ bool PSMarkSweep::invoke_no_policy(bool clear_all_softrefs) {
         transfer_back_alive_pure = 0;
         transfer_back_garbage = 0;
         moved_to_h2 = 0;
-
+        fprintf(stderr, "H2 STATS DEBUG: Iterating and resetting H2\n");
         iterate_h2_reset();
+        fprintf(stderr, "H2 STATS DEBUG: Reset Complete!\n\n");
       #endif
 	}
 #endif // TERA_MAJOR_GC
 
     mark_sweep_phase1(clear_all_softrefs);
 
-    mark_sweep_phase2();
-
 #if H2_TRANSFER_STATS
-    if(EnableTeraHeap)
+    if(EnableTeraHeap){
+      fprintf(stderr, "H2 STATS DEBUG: Iterating and counting H2\n");
       iterate_h2_count();
-
-    fprintf(stderr, "\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_mixed/1048576);
-    fprintf(stderr, "Transfer Stats: First Count Total Alive Pure %" PRIu64 "mb\n", total_alive_pure/1048576);
-    fprintf(stderr, "Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
+      fprintf(stderr, "H2 STATS DEBUG: Count Complete!\n\n");
+    }
+    thlog_or_tty->print_cr("\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_mixed/1048576);
+    thlog_or_tty->print_cr("Transfer Stats: First Count Total Alive Pure %" PRIu64 "mb\n", total_alive_pure/1048576);
+    thlog_or_tty->print_cr("Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
 #endif
+
+    mark_sweep_phase2();
 
     // Don't add any more derived pointers during phase3
     COMPILER2_PRESENT(assert(DerivedPointerTable::is_active(), "Sanity"));
@@ -352,20 +364,20 @@ bool PSMarkSweep::invoke_no_policy(bool clear_all_softrefs) {
 #if H2_TRANSFER_STATS
     if(EnableTeraHeap){
 
-      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Mixed %" PRIu64 "mb\n", transfer_back_alive_mixed/1048576);
-      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Pure %" PRIu64 "mb\n", transfer_back_alive_pure/1048576);
-      fprintf(stderr, "Transfer Stats: Transfered Back Total Garbage %" PRIu64 "mb\n", transfer_back_garbage/1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: Transfered Back Total Alive Mixed %" PRIu64 "mb\n", transfer_back_alive_mixed/1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: Transfered Back Total Alive Pure %" PRIu64 "mb\n", transfer_back_alive_pure/1048576);
+      thlog_or_tty->print_cr("Transfer Stats: Transfered Back Total Garbage %" PRIu64 "mb\n", transfer_back_garbage/1048576);
 
-      fprintf(stderr, "\nTransfer Stats: Alive Moved to H2 this GC %" PRIu64 "mb\n", moved_to_h2/1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: Alive Moved to H2 this GC %" PRIu64 "mb\n", moved_to_h2/1048576);
 
-      fprintf(stderr, "\nTransfer Stats: end of GC TOTAL alive: %" PRIu64 "mb\n", (total_alive_mixed+total_alive_pure - transfer_back_alive_mixed - transfer_back_alive_pure + moved_to_h2) / 1048576);
-      fprintf(stderr, "Transfer Stats: end of GC TOTAL garbage: %" PRIu64 "mb\n", (total_garbage - transfer_back_garbage) / 1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: end of GC TOTAL alive: %" PRIu64 "mb\n", (total_alive_mixed+total_alive_pure - transfer_back_alive_mixed - transfer_back_alive_pure + moved_to_h2) / 1048576);
+      thlog_or_tty->print_cr("Transfer Stats: end of GC TOTAL garbage: %" PRIu64 "mb\n", (total_garbage - transfer_back_garbage) / 1048576);
 
       gcs_sum_alive_mb += (transfer_back_alive_mixed+transfer_back_alive_pure) / 1048576;
       gcs_sum_dead_mb += transfer_back_garbage / 1048576;
 
-      fprintf(stderr, "\nTransfer Stats: ALL GCs TRANSFER BACK alive: %" PRIu64 "mb\n", gcs_sum_alive_mb);
-      fprintf(stderr, "Transfer Stats: ALL GCs TRANSFER BACK garbage: %" PRIu64 "mb\n", gcs_sum_dead_mb);
+      thlog_or_tty->print_cr("\nTransfer Stats: ALL GCs TRANSFER BACK alive: %" PRIu64 "mb\n", gcs_sum_alive_mb);
+      thlog_or_tty->print_cr("Transfer Stats: ALL GCs TRANSFER BACK garbage: %" PRIu64 "mb\n", gcs_sum_dead_mb);
     }
 #endif
 
