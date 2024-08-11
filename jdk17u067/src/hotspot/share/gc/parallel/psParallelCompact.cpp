@@ -1355,7 +1355,7 @@ void PSParallelCompact::post_compact(uint64_t diff)
   GCTraceTime(Info, gc, phases) tm("Post Compact", &_gc_timer);
   ParCompactionManager::remove_all_shadow_regions();
 
-  HeapWord *const new_top_pretransfer = space_info[old_space_id].new_top();
+  HeapWord *const new_top_pretransfer = _space_info[old_space_id].new_top();
 
   for (unsigned int id = old_space_id; id < last_space_id; ++id)
   {

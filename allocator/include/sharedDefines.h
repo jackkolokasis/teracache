@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define DEV "/mnt/fmap/file.txt"	     //< Device name
-#define DEV_SIZE (700*1024LU*1024*1024)  //< Device size (in bytes)
+#define DEV_SIZE (900*1024LU*1024*1024)  //< Device size (in bytes)
 
 #define ASSERT
 
@@ -27,7 +27,7 @@
 
 #define MALLOC_ON	1				  //< Allocate buffers dynamically
 
-#define REGION_SIZE	(32*1024LU*1024) //< Region size (in bytes) for allignment
+#define REGION_SIZE	(256*1024LU*1024) //< Region size (in bytes) for allignment
 									                    // version
 
 #if ANONYMOUS
