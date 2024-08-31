@@ -135,19 +135,35 @@ function build_jvm_image() {
   if [[ $image_variant == "optimized" ]]; then
     image_variant="release"
   fi
+  export PROPER_COMPILER_CC=/usr/bin/gcc-9
+  export CC=/usr/bin/gcc-9
+  export CXX=/usr/bin/g++-9
+  
+  #export PROPER_COMPILER_CC=/archive/users/perpap/gcc-7.4.0/bin/gcc-7.4.0
+  #export CC=/archive/users/perpap/gcc-7.4.0/bin/gcc-7.4.0
+  #export CXX=/archive/users/perpap/gcc-7.4.0/bin/g++-7.4.0
 
   make CONF=linux-$TARGET_PLATFORM-normal-server-$image_variant clean
   make CONF=linux-$TARGET_PLATFORM-normal-server-$image_variant dist-clean
 
   bash ./configure \
+    --with-toolchain-type=gcc \
     --with-debug-level=$debug_level \
     --with-native-debug-symbols=$debug_sumbols \
-    --enable-ccache \
+    --disable-ccache \
     --with-jobs="$(nproc)" \
     --with-boot-jdk=$BOOT_JDK \
     --with-extra-cflags="-march=${microarchitecture} -I${PROJECT_DIR}/allocator/include -I${PROJECT_DIR}/tera_malloc/include" \
     --with-extra-cxxflags="-march=${microarchitecture} -I${PROJECT_DIR}/allocator/include -I${PROJECT_DIR}/tera_malloc/include"
-
+ : '
+  bash ./configure \
+    --with-debug-level=$debug_level \
+    --with-native-debug-symbols=$debug_sumbols \
+    --with-jobs="$(nproc)" \
+    --with-boot-jdk=$BOOT_JDK \
+    --with-extra-cflags="-march=${microarchitecture} -I${PROJECT_DIR}/allocator/include -I${PROJECT_DIR}/tera_malloc/include" \
+    --with-extra-cxxflags="-march=${microarchitecture} -I${PROJECT_DIR}/allocator/include -I${PROJECT_DIR}/tera_malloc/include"
+'
   intercept-build make CONF=linux-$TARGET_PLATFORM-normal-server-$image_variant
   cd ../
   compdb -p jdk8u345 list >compile_commands_$image_variant.json
@@ -213,27 +229,35 @@ function run_clean_make() {
 function export_env_vars() {
   #local PROJECT_DIR="$(pwd)/../"
   detect_platform
-
-  export JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk"
-  echo "JAVA_HOME = $JAVA_HOME"
-
-  ### TeraHeap Allocator
-  export LIBRARY_PATH=${PROJECT_DIR}/allocator/lib:$LIBRARY_PATH
-  export LD_LIBRARY_PATH=${PROJECT_DIR}/allocator/lib:$LD_LIBRARY_PATH
-  export PATH=${PROJECT_DIR}/allocator/include:$PATH
-  export C_INCLUDE_PATH=${PROJECT_DIR}/allocator/include:$C_INCLUDE_PATH
-  export CPLUS_INCLUDE_PATH=${PROJECT_DIR}/allocator/include:$CPLUS_INCLUDE_PATH
+  #export CCACHE_COMPILER_CHECK=content
+  export CC="aarch64-linux-gnu-gcc-9"
+  export CXX="aarch64-linux-gnu-g++-9"
+  #export CC=/archive/users/perpap/gcc-7.4.0/bin/gcc-7.4.0
+  #export CXX=/archive/users/perpap/gcc-7.4.0/bin/g++-7.4.0
+  #export LD_LIBRARY_PATH=/archive/users/$(whoami)/gcc-7.4.0/lib64:$LD_LIBRARY_PATH
+  echo "CC:$CC CXX:$CXX"
+  #export JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk"
+  #echo "JAVA_HOME = $JAVA_HOME"
   export ALLOCATOR_HOME=${PROJECT_DIR}/allocator
-
-  export LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LIBRARY_PATH
-  export LD_LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LD_LIBRARY_PATH
-  export PATH=${PROJECT_DIR}/tera_malloc/include:$PATH
-  export C_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$C_INCLUDE_PATH
-  export CPLUS_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$CPLUS_INCLUDE_PATH
   export TERA_MALLOC_HOME=${PROJECT_DIR}/tera_malloc
+  ### TeraHeap Allocator
+  export LIBRARY_PATH=${ALLOCATOR_HOME}/lib:${TERA_MALLOC_HOME}/lib:$LIBRARY_PATH
+  export LD_LIBRARY_PATH=${ALLOCATOR_HOME}/lib:${TERA_MALLOC_HOME}/lib:$LD_LIBRARY_PATH
+  #export PATH=${PROJECT_DIR}/allocator/include:$PATH
+  export C_INCLUDE_PATH=${ALLOCATOR_HOME}/include:${TERA_MALLOC_HOME}/include:$C_INCLUDE_PATH
+  export CPLUS_INCLUDE_PATH=${ALLOCATOR_HOME}/include:${TERA_MALLOC_HOME}/include:$CPLUS_INCLUDE_PATH
+  
+
+  #export LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LIBRARY_PATH
+  #export LD_LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LD_LIBRARY_PATH
+  #export PATH=${PROJECT_DIR}/tera_malloc/include:$PATH
+  #export C_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$C_INCLUDE_PATH
+  #export CPLUS_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$CPLUS_INCLUDE_PATH
+  echo "ALLOCATOR_HOME=$ALLOCATOR_HOME"
+  echo "TERA_MALLOC_HOME=$TERA_MALLOC_HOME"
 
   #export LD_LIBRARY_PATH=/spare/miniconda3/envs/teraheap-aarch64-env/aarch64-conda-linux-gnu/sysroot/usr/lib64:$LD_LIBRARY_PATH
-  echo "set LD_LIBRARY_PATH to '$LD_LIBRARY_PATH'"
+  echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
 }
 
 function parse_script_arguments() {
@@ -292,8 +316,7 @@ function parse_script_arguments() {
     -m | --make)
       if [[ "$2" == "all" || "$2" == "a" || "$2" == "release" || "$2" == "r" || "$2" == "optimized" || "$2" == "o" || "$2" == "fastdebug" || "$2" == "f" || "$2" == "slowdebug" || "$2" == "s" ]]; then
         RELINK=true
-        JVM_IMAGE_VARIANT="$2"
-        exit 0 
+        JVM_IMAGE_VARIANT="$2" 
       else
         │ echo "Invalid jvm image variant; Please provide one of: all|release|optimized|fastdebug|slowdebug or a|r|o|f|s"
         │ exit ${ERRORS[INVALID_OPTION]}
@@ -304,7 +327,6 @@ function parse_script_arguments() {
       if [[ "$2" == "all" || "$2" == "a" || "$2" == "release" || "$2" == "r" || "$2" == "optimized" || "$2" == "o" || "$2" == "fastdebug" || "$2" == "f" || "$2" == "slowdebug" || "$2" == "s" ]]; then
         CLEAN_AND_MAKE=true
         JVM_IMAGE_VARIANT="$2"
-        exit 0 
       else
         │ echo "Invalid jvm image variant; Please provide one of: all|release|optimized|fastdebug|slowdebug or a|r|o|f|s"
         │ exit ${ERRORS[INVALID_OPTION]}

@@ -5,6 +5,7 @@
 
 class TeraTimers: public CHeapObj<mtInternal> {
 private:
+  static const uint64_t CYCLES_PER_SECOND;
   uint64_t h2_scavenge_start_time;          //< Start time of finding H2 to H1 references
                                             //at the start of major GC
   uint64_t h2_scavenge_end_time;            //< End time of finding H2 to H1 references at 
@@ -28,7 +29,6 @@ private:
   uint64_t *h2_card_table_start_time;       //< Start time of scanning H1 card table
   uint64_t *h2_card_table_end_time;         //< End time of scanning H1 card table
 
-  uint64_t rdtsc();
   void print_ellapsed_time(uint64_t start_time, uint64_t end_time, char* msg);
 
 public:
