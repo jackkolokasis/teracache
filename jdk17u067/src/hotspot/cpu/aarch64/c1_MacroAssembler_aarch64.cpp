@@ -194,7 +194,12 @@ void C1_MacroAssembler::initialize_header(Register obj, Register klass, Register
   } else {
     str(klass, Address(obj, oopDesc::klass_offset_in_bytes()));
   }
-
+#ifdef TERA_FLAG
+    if (EnableTeraHeap){
+      mov(t1, (intptr_t)INIT_TF_HEX);// Load the teraflag constant into t1
+      str(t1, Address(obj, oopDesc::teraflag_offset_in_bytes()));// Store it at the teraflag offset in the object header 
+    }
+#endif //TERA_FLAG
   if (len->is_valid()) {
     strw(len, Address(obj, arrayOopDesc::length_offset_in_bytes()));
   } else if (UseCompressedClassPointers) {

@@ -1,14 +1,9 @@
+#include "gc_implementation/shared/cycleCounting.hpp"
 #include "gc_implementation/teraHeap/teraTimers.hpp"
 #include "memory/allocation.inline.hpp"
 #include "runtime/java.hpp"
 
-#define CYCLES_PER_SECOND 2.4e9; // CPU frequency of 2.4 GHz
-
-uint64_t TeraTimers::rdtsc() {
-  unsigned int lo, hi;
-  __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
-  return ((uint64_t)hi << 32) | lo;
-}
+const uint64_t TeraTimers::CYCLES_PER_SECOND = get_cycles_per_second();
 
 void TeraTimers::print_ellapsed_time(uint64_t start_time,
                                      uint64_t end_time, char* msg) {
@@ -38,57 +33,57 @@ TeraTimers::~TeraTimers() {
 }
 
 void TeraTimers::h2_scavenge_start() {
-  h2_scavenge_start_time = rdtsc();
+  h2_scavenge_start_time = get_cycles();
 }
 
 void TeraTimers::h2_scavenge_end() {
   char msg[12] = "H2_SCAVENGE";
 
-  h2_scavenge_end_time = rdtsc();
+  h2_scavenge_end_time = get_cycles();
   print_ellapsed_time(h2_scavenge_start_time, h2_scavenge_end_time, msg);
 }
 
 void TeraTimers::h1_marking_phase_start() {
-  h1_marking_phase_start_time = rdtsc();
+  h1_marking_phase_start_time = get_cycles();
 }
 
 void TeraTimers::h1_marking_phase_end() {
   char msg[17] = "H1_MARKING_PHASE";
 
-  h1_marking_phase_end_time = rdtsc();
+  h1_marking_phase_end_time = get_cycles();
   print_ellapsed_time(h1_marking_phase_start_time, h1_marking_phase_end_time, msg);
 }
 
 void TeraTimers::h1_precompact_phase_start() {
-  h1_precompact_phase_start_time = rdtsc();
+  h1_precompact_phase_start_time = get_cycles();
 }
 
 void TeraTimers::h1_precompact_phase_end() {
   char msg[17] = "H1_SUMMARY_PHASE";
 
-  h1_precompact_phase_end_time = rdtsc();
+  h1_precompact_phase_end_time = get_cycles();
   print_ellapsed_time(h1_precompact_phase_start_time, h1_precompact_phase_end_time, msg);
 }
 
 void TeraTimers::h1_adjust_phase_start() {
-  h1_adjust_phase_start_time = rdtsc();
+  h1_adjust_phase_start_time = get_cycles();
 }
 
 void TeraTimers::h1_adjust_phase_end() {
   char msg[16] = "H1_ADJUST_ROOTS";
-  h1_adjust_phase_end_time = rdtsc();
+  h1_adjust_phase_end_time = get_cycles();
 
   print_ellapsed_time(h1_adjust_phase_start_time, h1_adjust_phase_end_time, msg);
 }
 
 void TeraTimers::h1_compact_start() {
-  h1_compact_start_time = rdtsc();
+  h1_compact_start_time = get_cycles();
 }
 
 void TeraTimers::h1_compact_end() {
   char msg[11] = "H1_COMPACT";
 
-  h1_compact_end_time = rdtsc();
+  h1_compact_end_time = get_cycles();
   print_ellapsed_time(h1_compact_start_time, h1_compact_end_time, msg);
 }
   
@@ -98,12 +93,12 @@ void TeraTimers::h1_compact_end() {
 // take the maximum time from all the threads as the total time.
 void TeraTimers::h1_card_table_start(unsigned int worker_id) {
   assert(worker_id < ParallelGCThreads, "Index out of bound");
-  h1_card_table_start_time[worker_id] = rdtsc();
+  h1_card_table_start_time[worker_id] = get_cycles();
 }
 
 void TeraTimers::h1_card_table_end(unsigned int worker_id) {
   assert(worker_id < ParallelGCThreads, "Index out of bound");
-  h1_card_table_end_time[worker_id] = rdtsc();
+  h1_card_table_end_time[worker_id] = get_cycles();
 }
 
 // Keep for each GC thread the time that need to traverse the H2
@@ -112,12 +107,12 @@ void TeraTimers::h1_card_table_end(unsigned int worker_id) {
 // take the maximum time from all the threads as the total time.
 void TeraTimers::h2_card_table_start(unsigned int worker_id) {
   assert(worker_id < ParallelGCThreads, "Index out of bound");
-  h2_card_table_start_time[worker_id] = rdtsc();
+  h2_card_table_start_time[worker_id] = get_cycles();
 }
 
 void TeraTimers::h2_card_table_end(unsigned int worker_id) {
   assert(worker_id < ParallelGCThreads, "Index out of bound");
-  h2_card_table_end_time[worker_id] = rdtsc();
+  h2_card_table_end_time[worker_id] = get_cycles();
 }
 
 // Print the time to traverse the TeraHeap dirty card tables

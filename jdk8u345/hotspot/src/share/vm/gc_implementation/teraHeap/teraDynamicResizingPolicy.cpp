@@ -2,13 +2,11 @@
 #include "gc_implementation/parallelScavenge/parallelScavengeHeap.hpp"
 #include "gc_implementation/teraHeap/teraDynamicResizingPolicy.hpp"
 #include "memory/universe.hpp"
-#include "gc_implementation/teraHeap/cycleCounting.hpp"
+#include "gc_implementation/shared/cycleCounting.hpp"
 #include "gc_implementation/teraHeap/teraHeap.hpp"
 #include "gc_implementation/teraHeap/teraHeap.inline.hpp"
 
 #define BUFFER_SIZE 1024
-//#define CYCLES_PER_SECOND 2.4e9; // CPU frequency of 2.4 GHz
-//const uint64_t TeraDynamicResizingPolicy::CYCLES_PER_SECOND{get_cycles_per_second()};
 const uint64_t TeraDynamicResizingPolicy::CYCLES_PER_SECOND = get_cycles_per_second();
 
 #define REGULAR_INTERVAL ((10LL * 1000)) 

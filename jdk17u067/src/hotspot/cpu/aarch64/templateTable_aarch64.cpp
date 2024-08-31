@@ -3561,7 +3561,12 @@ void TemplateTable::_new() {
     __ str(rscratch1, Address(r0, oopDesc::mark_offset_in_bytes()));
     __ store_klass_gap(r0, zr);  // zero klass gap for compressed oops
     __ store_klass(r0, r4);      // store klass last
-
+#ifdef TERA_FLAG
+    if (EnableTeraHeap){
+      __ mov(r1, (intptr_t)INIT_TF_HEX);// Load the teraflag value into r1
+      __ str(r1, Address(r0, oopDesc::teraflag_offset_in_bytes()));// Store the teraflag in the object header 
+    }
+#endif //TERA_FLAG
     {
       SkipIfEqual skip(_masm, &DTraceAllocProbes, false);
       // Trigger dtrace event for fastpath

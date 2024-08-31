@@ -13,7 +13,7 @@
 ###################################################
 
 PROJECT_DIR="$(pwd)/.."
-echo "PROJECT_DIR=$PROJECT_DIR"
+
 # Declare an associative array used for error handling
 declare -A ERRORS
 
@@ -211,21 +211,14 @@ function run_clean_make() {
 
 function export_env_vars() {
   detect_platform
+  export JAVA_HOME="/usr/lib/jvm/java-17-openjdk"
 
-  ### TeraHeap Allocator
-  export LIBRARY_PATH=${PROJECT_DIR}/allocator/lib:$LIBRARY_PATH
-  export LD_LIBRARY_PATH=${PROJECT_DIR}/allocator/lib:$LD_LIBRARY_PATH
-  export PATH=${PROJECT_DIR}/allocator/include:$PATH
-  export C_INCLUDE_PATH=${PROJECT_DIR}/allocator/include:$C_INCLUDE_PATH
-  export CPLUS_INCLUDE_PATH=${PROJECT_DIR}/allocator/include:$CPLUS_INCLUDE_PATH
   export ALLOCATOR_HOME=${PROJECT_DIR}/allocator
-
-  export LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LIBRARY_PATH
-  export LD_LIBRARY_PATH=${PROJECT_DIR}/tera_malloc/lib:$LD_LIBRARY_PATH
-  export PATH=${PROJECT_DIR}/tera_malloc/include:$PATH
-  export C_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$C_INCLUDE_PATH
-  export CPLUS_INCLUDE_PATH=${PROJECT_DIR}/tera_malloc/include:$CPLUS_INCLUDE_PATH
   export TERA_MALLOC_HOME=${PROJECT_DIR}/tera_malloc
+  export LIBRARY_PATH=${ALLOCATOR_HOME}/lib:${TERA_MALLOC_HOME}/lib:$LIBRARY_PATH
+  export LD_LIBRARY_PATH=${ALLOCATOR_HOME}/lib:${TERA_MALLOC_HOME}/lib:$LD_LIBRARY_PATH
+  export C_INCLUDE_PATH=${ALLOCATOR_HOME}/include:${TERA_MALLOC_HOME}/include:$C_INCLUDE_PATH
+  export CPLUS_INCLUDE_PATH=${ALLOCATOR_HOME}/include:${TERA_MALLOC_HOME}/include:$CPLUS_INCLUDE_PATH
 }
 
 function parse_script_arguments() {
@@ -259,8 +252,6 @@ function parse_script_arguments() {
     -g | --gcc)
       CC="$CC-$2"
       CXX="$CXX-$2"
-      echo "CC = $CC"
-      echo "CXX = $CXX"
       shift 2
       ;;
     -i | --image)
@@ -284,7 +275,7 @@ function parse_script_arguments() {
     -m | --make)
       if [[ "$2" == "all" || "$2" == "a" || "$2" == "release" || "$2" == "r" || "$2" == "optimized" || "$2" == "o" || "$2" == "fastdebug" || "$2" == "f" || "$2" == "slowdebug" || "$2" == "s" ]]; then
         RELINK=true
-        JVM_IMAGE_VARIANT="$2"
+        JVM_IMAGE_VARIANT="$2" 
       else
         │ echo "Invalid jvm image variant; Please provide one of: all|release|optimized|fastdebug|slowdebug or a|r|o|f|s"
         │ exit ${ERRORS[INVALID_OPTION]}
