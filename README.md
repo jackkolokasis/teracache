@@ -27,14 +27,23 @@ sudo apt-get install openjdk-8-jdk
 # For Centos
 sudo yum install java-1.8.0-openjdk
 ```
-Edit the compile.sh script in jdk8u345/ directory by changing the
-JAVA_HOME variable to point to the installation directory of openjdk8 as follows:
 
+OpeJDK17 can be compiled with OpenJDK17. So, you need first to download
+OpenJDK17.
 ```sh
-export JAVA_HOME="/path/to/openjdk8"
+# For Ubuntu
+sudo apt-get install openjdk-17-jdk
 ```
 
-The JVM can be compiled only with gcc <= 8.5 and g++ <= 8.5
+Edit the compile.sh script in jdk17u067/ directory by changing the
+JAVA_HOME variable to point to the installation directory of openjdk17 as follows:
+
+```sh
+export JAVA_HOME="/path/to/openjdk17"
+```
+
+OpenJDK8 can be compiled only with gcc <= 8.5 and g++ <= 8.5.
+OpenJDK17 can be compiled only with gcc >= 8.5.
 
 ### Build
 1. Build allocator.
