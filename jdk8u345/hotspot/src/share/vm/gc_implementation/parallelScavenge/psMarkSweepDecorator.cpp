@@ -141,7 +141,9 @@ void PSMarkSweepDecorator::precompact() {
       
       // Take a pointer from the region
       HeapWord* h2_obj_addr = (HeapWord*) Universe::teraHeap()->h2_add_object(oop(q), size);
-      moved_to_h2 += size * 8;
+      #if H2_TRANSFER_STATS
+        moved_to_h2 += size * 8;
+      #endif
       assert(Universe::teraHeap()->is_obj_in_h2(oop(h2_obj_addr)), "Pointer from H2 is not valid");
 
       // Store the forwarding pointer into the mark word

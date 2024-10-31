@@ -123,28 +123,30 @@ static void iterate_h2_count(){
   HeapWord* curr_reg_start = (HeapWord*) (Universe::teraHeap()->get_h2_first_obj());
   HeapWord* curr, *curr_reg_end;
   size_t region_array_size = Universe::teraHeap()->get_h2_region_no();
-  fprintf(stderr, "\nTotal reg number: %zu\n\n", Universe::teraHeap()->get_h2_region_no());
+  //fprintf(stderr, "\nTotal reg number: %zu\n\n", Universe::teraHeap()->get_h2_region_no());
 
   for(size_t region_no=0; region_no<region_array_size; region_no++){
     curr = curr_reg_start;
     curr_reg_end = (HeapWord*)Universe::teraHeap()->get_region_meta((char*) curr)->last_allocated_end;
-    fprintf(stderr, "(Reg %4zu) || reg_start = %p || alloc_end = %p:\n", region_no, curr, curr_reg_end);
+
+    // if(curr < curr_reg_end)
+    //   fprintf(stderr, "(Reg %4zu) || reg_start = %p || alloc_end = %p:\n", region_no, curr, curr_reg_end);
 
     uint64_t alive_buffer = 0;
     bool pure_region = true;
     while(curr < curr_reg_end && Universe::teraHeap()->check_if_valid_object(curr)){
-      fprintf(stderr, "\tcur = %p || ", curr);
+      //fprintf(stderr, "\tcur = %p || ", curr);
       oop obj = cast_to_oop(curr);
-      fprintf(stderr, "size = %d || ", obj->size());
+      //fprintf(stderr, "size = %d || ", obj->size());
       
       if(obj->get_h2_dst_addr() == 544){
         alive_buffer += obj->size() * 8;
-        fprintf(stderr, "Alive\n");
+        //fprintf(stderr, "Alive\n");
       }
       else {
         total_garbage += obj->size() * 8;
         pure_region = false;
-        fprintf(stderr, "Dead\n");
+        //fprintf(stderr, "Dead\n");
       }
 
       curr += obj->size();
@@ -325,18 +327,18 @@ bool PSMarkSweep::invoke_no_policy(bool clear_all_softrefs) {
 		Universe::teraHeap()->h2_reset_used_field();
 
     #if H2_TRANSFER_STATS
-        fprintf(stderr, "========================== MAJOR GC ==========================\n\n");
-        total_garbage = 0;
-        total_alive_mixed = 0;
-        total_alive_pure = 0;
-        transfer_back_alive_mixed = 0;
-        transfer_back_alive_pure = 0;
-        transfer_back_garbage = 0;
-        moved_to_h2 = 0;
-        fprintf(stderr, "H2 STATS DEBUG: Iterating and resetting H2\n");
-        iterate_h2_reset();
-        fprintf(stderr, "H2 STATS DEBUG: Reset Complete!\n\n");
-      #endif
+      fprintf(stderr, "========================== MAJOR GC ==========================\n\n");
+      total_garbage = 0;
+      total_alive_mixed = 0;
+      total_alive_pure = 0;
+      transfer_back_alive_mixed = 0;
+      transfer_back_alive_pure = 0;
+      transfer_back_garbage = 0;
+      moved_to_h2 = 0;
+      fprintf(stderr, "H2 STATS DEBUG: Iterating and resetting H2\n");
+      iterate_h2_reset();
+      fprintf(stderr, "H2 STATS DEBUG: Reset Complete!\n\n");
+    #endif
 	}
 #endif // TERA_MAJOR_GC
 

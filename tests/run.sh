@@ -12,7 +12,7 @@ EXEC=("Array" "Array_List" "Array_List_Int" "Array_List_IntArrays" "List_Large" 
 	"HashMap" "Rehashing" "Clone" "Groupping" "MultiHashMap" \
 	"Test_WeakHashMap" "ClassInstance")
 
-EXEC=("HashMap")
+EXEC=("Array_List_Int")
 
 # Export Enviroment Variables
 export_env_vars() {
