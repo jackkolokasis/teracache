@@ -38,7 +38,6 @@ void init_regions(){
   fprintf(stderr, "Total num of regions:%d\n", (int32_t) REGION_ARRAY_SIZE);
   fprintf(stderr, "\nReseting region array\n\n");
 #endif
-  fprintf(stderr, "REGION_ARRRAY_SIZE=%d || get_h2_region_number()=%d\n\n", (int)REGION_ARRAY_SIZE, (int)get_h2_region_number());
   for (i = 0; i < get_h2_region_number() ; i++) {
     region_array[i].start_address             = (i == 0) ? start_addr_mem_pool() : (region_array[i - 1].start_address + (uint64_t) REGION_SIZE);
     region_array[i].used                      = 0;
@@ -89,11 +88,6 @@ void init_regions(){
 
   transfer_regions.move_regions_list = malloc(100*sizeof(struct region*));
   transfer_regions.capacity = 100;
-
-  fprintf(stderr, "Allocator Conf: \n"
-    "\tTRANSFER_BACK_THREASHOLD: under %f\n",
-    TRANSFER_BACK_THREASHOLD
-  );
 }
 
 /*

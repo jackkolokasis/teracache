@@ -1355,7 +1355,7 @@ void PSParallelCompact::post_compact(uint64_t diff)
   GCTraceTime(Info, gc, phases) tm("Post Compact", &_gc_timer);
   ParCompactionManager::remove_all_shadow_regions();
 
-  HeapWord *const new_top_pretransfer = space_info[old_space_id].new_top();
+  HeapWord *const new_top_pretransfer = _space_info[old_space_id].new_top();
 
   for (unsigned int id = old_space_id; id < last_space_id; ++id)
   {
@@ -1379,9 +1379,6 @@ void PSParallelCompact::post_compact(uint64_t diff)
 #if H2_MOVE_BACK
     if (EnableTeraHeap && id == old_space_id && Universe::teraHeap()->get_tregions_size() > 0)
     {
-#if H2_MOVE_DEBUG_PRINT
-      fprintf(stderr, "In Publish New Top: used_in_bytes=%lu\n", _space_info[old_space_id].space()->used_in_bytes());
-#endif
       _space_info[old_space_id].set_new_top(
           _space_info[old_space_id].new_top() + (diff / 8));
     }
@@ -1434,12 +1431,6 @@ void PSParallelCompact::post_compact(uint64_t diff)
 
   // Signal that we have completed a visit to all live objects.
   Universe::heap()->record_whole_heap_examined_timestamp();
-
-#if H2_MOVE_DEBUG_PRINT
-  for (unsigned int id = old_space_id; id < last_space_id; ++id)
-    fprintf(stderr, "End post_compact():: GENERATION: %d || new_bott = %p || new_top = %p\n", 
-      id, _space_info[id].space()->bottom(), _space_info[id].new_top());
-#endif
 }
 
 uint64_t PSParallelCompact::move_h2_regions()
@@ -1449,10 +1440,6 @@ uint64_t PSParallelCompact::move_h2_regions()
 
   uint64_t total_diff = 0;
 
-#if H2_MOVE_DEBUG_PRINT
-  fprintf(stderr, "___________________Running once___________________\n");
-#endif
-
   size_t REGION_SIZE = Universe::teraHeap()->get_region_size();
 
   char *buffer = NEW_C_HEAP_ARRAY(char, REGION_SIZE, mtGC);
@@ -1461,19 +1448,11 @@ uint64_t PSParallelCompact::move_h2_regions()
   {
     int copy_to_buffer_rt = Universe::teraHeap()->get_region_copy(i, buffer);
 
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "\n------------------COPYING------------------\n\n");
-    fprintf(stderr, "psParallel: diff of uregion %lu = %" PRIu64 "\n", i, Universe::teraHeap()->get_tregion_diff(i));
-#endif
-
     if (copy_to_buffer_rt != 0)
     {
       fprintf(stderr, "Error: copy of region to buffer failed\n");
       assert(0, "Fail in nvme I/O");
     }
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "Destination: %p\n", (char *)Universe::teraHeap()->get_destination_addr(i));
-#endif
 
     HeapWord *start_ptr, *end_ptr;
     HeapWord *h1_curr, *h1_end;
@@ -1500,14 +1479,7 @@ uint64_t PSParallelCompact::move_h2_regions()
 
     total_back_transfers++;
 
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "\nStart pointer %p || End pointer %p || Their diff %lu\n\n", start_ptr, end_ptr, (size_t)end_ptr - (size_t)start_ptr);
-#endif
   }
-
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "Copy complete with total_diff = %lu\n", total_diff);
-#endif
 
   FREE_C_HEAP_ARRAY(char, buffer);
   total_mb_transfered_back += total_diff / 1048576; //convert bytes to Mbytes
@@ -2189,12 +2161,6 @@ void PSParallelCompact::set_up_h2_regions(SpaceId id)
   HeapWord* np = _space_info[id].new_top();
   size_t reg_size = Universe::teraHeap()->get_region_size(); // HeapWord* aligned to 8 words
 
-#if H2_MOVE_DEBUG_PRINT
-  fprintf(stderr, "\n____Summary Phase (assigning dest_addrs)____\n");
-  fprintf(stderr, "psParallelCompact: old top is %p || region size = %" PRIu64 "\n", np, reg_size);
-  fprintf(stderr, "\n\n--->>> Uregions size: %lu\n\n", Universe::teraHeap()->get_tregions_size());
-#endif
-
   /*Iterate through the underpopulated regions and assign destination addresses*/
   for (size_t i = 0; i < Universe::teraHeap()->get_tregions_size(); i++)
   {
@@ -2205,10 +2171,6 @@ void PSParallelCompact::set_up_h2_regions(SpaceId id)
 
     if ( (np + (Universe::teraHeap()->get_tregion_diff(i) / 8)) > (HeapWord*)((uint64_t)_space_info[eden_space_id].space()->bottom() - (uint64_t)(0.1f*((uint64_t)_space_info[eden_space_id].space()->bottom()-(uint64_t)_space_info[old_space_id].space()->bottom())) ) )
     {
-#if H2_MOVE_DEBUG_PRINT
-      fprintf(stderr, "New dest_addr would be %p, but eden top is %p\n", np + (i * reg_size), _space_info[eden_space_id].space()->bottom());
-      fprintf(stderr, "Not enough space to fit all h2 regions, %lu will be moved to H1\n", i);
-#endif 
       size_t new_size = i;
       while(i < Universe::teraHeap()->get_tregions_size()){
         Universe::teraHeap()->set_destination_addr(i, 0);
@@ -2220,14 +2182,6 @@ void PSParallelCompact::set_up_h2_regions(SpaceId id)
 
     Universe::teraHeap()->set_destination_addr(i, (uint64_t)np);
     np = np + (Universe::teraHeap()->get_tregion_diff(i) / 8);
-
-#if H2_MOVE_DEBUG_PRINT
-    /*--Debugging--*/
-    fprintf(stderr, "Selected region (no %lu) with ref = %-10lu | new destination_address = %p\n",
-            Universe::teraHeap()->get_region_number((char*)Universe::teraHeap()->get_allocated_start_addr(i)),
-            Universe::teraHeap()->get_region_rc((char*)Universe::teraHeap()->get_allocated_start_addr(i)),
-            (char *)Universe::teraHeap()->get_destination_addr(i));
-#endif
   }
 }
 
@@ -2410,15 +2364,6 @@ void PSParallelCompact::invoke(bool maximum_heap_compaction)
 // be calling invoke() instead.
 bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 {
-#if H2_MOVE_DEBUG_PRINT
-  fprintf(stderr, "=====================================GC_NEW_CYCLE_START=====================================\n\n");
-
-  for (unsigned int id = old_space_id; id < last_space_id; ++id)
-  {
-    fprintf(stderr, "GENERATION: %d || new_bott = %p || new_top = %p\n", id, _space_info[id].space()->bottom(), _space_info[id].new_top());
-  }
-#endif
-
   assert(SafepointSynchronize::is_at_safepoint(), "must be at a safepoint");
   assert(ref_processor() != NULL, "Sanity");
   test_check_refs = 0;
@@ -2528,11 +2473,6 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     }
 #endif // TERA_MAJOR_GC
 
-#if H2_MOVE_DEBUG_PRINT
-    if(EnableTeraHeap)
-      Universe::teraHeap()->validate_rc_reset();
-#endif
-
     bool marked_for_unloading = false;
 
     marking_start.update();
@@ -2549,12 +2489,13 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 #endif
 
 #if H2_TRANSFER_STATS
-    if(EnableTeraHeap)
+    if(EnableTeraHeap){
       iterate_h2_count();
 
-    fprintf(stderr, "\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_mixed/1048576);
-    fprintf(stderr, "Transfer Stats: First Count Total Alive Pure %" PRIu64 "mb\n", total_alive_pure/1048576);
-    fprintf(stderr, "Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: First Count Total Alive Mixed %" PRIu64 "mb\n", total_alive_mixed/1048576);
+      thlog_or_tty->print_cr("Transfer Stats: First Count Total Alive Pure %" PRIu64 "mb\n", total_alive_pure/1048576);
+      thlog_or_tty->print_cr("Transfer Stats: First Count Total Garbage %" PRIu64 "mb\n", total_garbage/1048576);
+    }
 #endif
 
     bool max_on_system_gc = UseMaximumCompactionOnSystemGC && GCCause::is_user_requested_gc(gc_cause);
@@ -2587,19 +2528,10 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     // adjust_roots() updates Universe::_intArrayKlassObj which is
     // needed by the compaction for filling holes in the dense prefix.
     adjust_roots();
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "\n----------Adjusted Roots----------\n\n");
-#endif
     compaction_start.update();
     compact();
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "\n----------Compaction Complete----------\n\n");
-#endif
     ParCompactionManager::verify_all_region_stack_empty();
 
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "Before Move Regions: used_in_bytes=%lu\n", _space_info[old_space_id].space()->used_in_bytes());
-#endif
 
 #if H2_TRANSFER_STATS
     if(EnableTeraHeap){
@@ -2607,20 +2539,20 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
         count_garbage_transfered();
       #endif
 
-      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Mixed %" PRIu64 "mb\n", transfer_back_alive_mixed/1048576);
-      fprintf(stderr, "\nTransfer Stats: Transfered Back Total Alive Pure %" PRIu64 "mb\n", transfer_back_alive_pure/1048576);
-      fprintf(stderr, "Transfer Stats: Transfered Back Total Garbage %" PRIu64 "mb\n", transfer_back_garbage/1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: Transfered Back Total Alive Mixed %" PRIu64 "mb\n", transfer_back_alive_mixed/1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: Transfered Back Total Alive Pure %" PRIu64 "mb\n", transfer_back_alive_pure/1048576);
+      thlog_or_tty->print_cr("Transfer Stats: Transfered Back Total Garbage %" PRIu64 "mb\n", transfer_back_garbage/1048576);
 
-      fprintf(stderr, "\nTransfer Stats: Alive Moved to H2 this GC %" PRIu64 "mb\n", moved_to_h2/1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: Alive Moved to H2 this GC %" PRIu64 "mb\n", moved_to_h2/1048576);
 
-      fprintf(stderr, "\nTransfer Stats: end of GC TOTAL alive: %" PRIu64 "mb\n", (total_alive_mixed+total_alive_pure - transfer_back_alive_mixed - transfer_back_alive_pure + moved_to_h2) / 1048576);
-      fprintf(stderr, "Transfer Stats: end of GC TOTAL garbage: %" PRIu64 "mb\n", (total_garbage - transfer_back_garbage) / 1048576);
+      thlog_or_tty->print_cr("\nTransfer Stats: end of GC TOTAL alive: %" PRIu64 "mb\n", (total_alive_mixed+total_alive_pure - transfer_back_alive_mixed - transfer_back_alive_pure + moved_to_h2) / 1048576);
+      thlog_or_tty->print_cr("Transfer Stats: end of GC TOTAL garbage: %" PRIu64 "mb\n", (total_garbage - transfer_back_garbage) / 1048576);
 
       gcs_sum_alive_mb += (transfer_back_alive_mixed+transfer_back_alive_pure) / 1048576;
       gcs_sum_dead_mb += transfer_back_garbage / 1048576;
 
-      fprintf(stderr, "\nTransfer Stats: ALL GCs TRANSFER BACK alive: %" PRIu64 "mb\n", gcs_sum_alive_mb);
-      fprintf(stderr, "Transfer Stats: ALL GCs TRANSFER BACK garbage: %" PRIu64 "mb\n", gcs_sum_dead_mb);
+      thlog_or_tty->print_cr("\nTransfer Stats: ALL GCs TRANSFER BACK alive: %" PRIu64 "mb\n", gcs_sum_alive_mb);
+      thlog_or_tty->print_cr("Transfer Stats: ALL GCs TRANSFER BACK garbage: %" PRIu64 "mb\n", gcs_sum_dead_mb);
     }
 #endif
 
@@ -2634,11 +2566,6 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
     // Reset the mark bitmap, summary data, and do other bookkeeping.  Must be
     // done before resizing.
     post_compact(total_diff);
-
-#if H2_MOVE_DEBUG_PRINT
-    fprintf(stderr, "After Post Compact: used_in_bytes=%lu\n", ParallelScavengeHeap::heap()->old_gen()->used_in_bytes());
-    //fprintf(stderr, "\nTotal h2 reference pointers adjusted: %lu\n\n", test_check_refs);
-#endif
 
 #ifdef TERA_MAJOR_GC
     if (EnableTeraHeap)
@@ -2824,22 +2751,10 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
   _gc_tracer.report_dense_prefix(dense_prefix(old_space_id));
   _gc_tracer.report_gc_end(_gc_timer.gc_end(), _gc_timer.time_partitions());
 
-  // for (unsigned int id = old_space_id; id < last_space_id; ++id) {
-  //   fprintf(stderr, "GENERATION: %d || new_bott = %p || top = %p || new_top=%p\n", id, _space_info[id].space()->bottom(), _space_info[id],space()->top(), _space_info[id].space()->new_top());
-  // }
-
-#if H2_MOVE_DEBUG_PRINT
-  fprintf(stderr, "END: used_in_bytes=%lu\n", _space_info[old_space_id].space()->used_in_bytes());
-#endif
-
 #if H2_MOVE_BACK
   if(EnableTeraHeap){
-    fprintf(stderr, "\nTRANSFER STATS:\n\ttotal transfers to H1: %" PRIu64 "\n\ttotal MB transfered: %" PRIu64 "\n", total_back_transfers, total_mb_transfered_back);
+    thlog_or_tty->print_cr("\nTRANSFER STATS:\n\ttotal transfers to H1: %" PRIu64 "\n\ttotal MB transfered: %" PRIu64 "\n", total_back_transfers, total_mb_transfered_back);
   }
-#endif
-
-#if H2_MOVE_DEBUG_PRINT
-  fprintf(stderr, "=====================================GC_CYCLE_COMPLETE=====================================\n\n");
 #endif
 
   return true;

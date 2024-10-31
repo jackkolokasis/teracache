@@ -91,8 +91,19 @@ void ParCompactionManager::initialize(ParMarkBitMap* mbm) {
     _objarray_task_queues->register_queue(i, &_manager_array[i]->_objarray_stack);
     region_task_queues()->register_queue(i, _manager_array[i]->region_stack());
     _manager_array[i]->worker_id = i;
-    fprintf(stderr, "Setup manager with id = %lu\n", _manager_array[i]->get_worker_id());
   }
+
+  #if H2_MOVE_BACK
+  if (EnableTeraHeap){
+    fprintf(stderr, "\tPolicy: ");
+    if(TRANSFER_POLICY == CARDS_MEMORY)
+      fprintf(stderr, "Cards-Memory\n");
+    else if(TRANSFER_POLICY == REFERENCES_MEMORY)
+      fprintf(stderr, "References-Memory\n");
+    else
+      fprintf(stderr, "!UNRECOGNIZED POLICY!\n");
+  }
+  #endif
 
   // The VMThread gets its own ParCompactionManager, which is not available
   // for work stealing.
