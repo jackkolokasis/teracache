@@ -1140,7 +1140,6 @@ bool PSParallelCompact::IsAliveClosure::do_object_b(oop p)
   if (EnableTeraHeap && Universe::teraHeap()->is_obj_in_h2(p))
   {
     size_t worker_id = ParCompactionManager::get_vmthread_cm()->get_worker_id();
-    fprintf(stderr, "PSPARCOM: do_obj: Got worker id = %li\n", worker_id);
     Universe::teraHeap()->mark_used_region(cast_from_oop<HeapWord *>(p), worker_id < WORKER_THREADS_NUM ? worker_id : 0);
     return true;
   }

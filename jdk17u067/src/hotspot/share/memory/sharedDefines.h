@@ -143,7 +143,7 @@
 
 #define H2_MOVE_BACK 1 // 0 for no transfers, 1 for transfers
 
-#define H2_MOVE_DEBUG_PRINT 1
+#define H2_MOVE_DEBUG_PRINT 0
 
 #define H2_REGIONS_ANALYSIS 0          
 
