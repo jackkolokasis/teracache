@@ -145,6 +145,6 @@
                                     // policy is used with
                                     // HINT_HIGH_LOW_WATERMARK
 
-#define H2_TRANSFER_STATS 1 // Prints Stats for transfers from H2 to H1(warning slow: iterates all H2 objects)
+#define H2_TRANSFER_STATS 0 // Prints Stats for transfers from H2 to H1(warning slow: iterates all H2 objects)
 
 #endif  // _SHARE_DEFINES_H_
