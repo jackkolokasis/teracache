@@ -2499,11 +2499,11 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 
     bool max_on_system_gc = UseMaximumCompactionOnSystemGC && GCCause::is_user_requested_gc(gc_cause);
 
-    /*Get underused regions*/
     summary_phase(vmthread_cm, maximum_heap_compaction || max_on_system_gc);
     
 #if H2_MOVE_BACK
     if(EnableTeraHeap){
+      // Select regions for transfer according to the policy
       Universe::teraHeap()->get_underpopulated_regs();
       // Set destination addresses for for the regions that will be moved
       set_up_h2_regions(old_space_id);
@@ -2569,7 +2569,8 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction)
 #ifdef TERA_MAJOR_GC
     if (EnableTeraHeap)
     {
-#if TRANSFER_POLICY == CARDS_MEMORY
+#if (H2_MOVE_BACK && TRANSFER_POLICY == CARDS_MEMORY)
+    //If card table was used for the policy, clean all cards
     BarrierSet* bs = BarrierSet::barrier_set();
     CardTableBarrierSet* ctbs = barrier_set_cast<CardTableBarrierSet>(bs);
     CardTable* ct = ctbs->card_table();
