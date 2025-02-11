@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define HIST_SIZE 5
+#define HIST_SIZE 1
 #define GC_HIST_SIZE 1
 #define NUM_ACTIONS 8
 #define NUM_STATES 4
@@ -34,6 +34,8 @@ private:
   double interval;                    //< Interval of the window
 
   actions cur_action;                 //< Current action
+  
+  actions prev_action;                //< Previous action
 
   states cur_state;                   //< Current state
 
@@ -100,16 +102,16 @@ private:
   TeraCPUUsage* init_cpu_usage_stats();
   
   // Calculation of the GC cost prediction.
-  double calculate_gc_cost(double gc_time_ms);
+  double calculate_gc_cost(double gc_time_ms, bool recalculate_intervals=false);
 
   // Print states (for debugging and logging purposes)
-  void print_state_action();
+  void print_state_action(double avg_gc_time_ms, double avg_io_time_ms);
 
   // GrowH1 action
   void action_grow_h1(bool *need_full_gc);
   
   // ShrinkH1 action
-  void action_shrink_h1();
+  void action_shrink_h1(bool *need_full_gc);
 
   // Move objects from H2 to H1
   // TODO: Add the source code of Kwstas here
@@ -131,6 +133,8 @@ private:
   
   // Set current time since last window
   void reset_counters();
+  
+  double adaptive_resizing_step(bool should_grow);
 
 public:
   // Constructor

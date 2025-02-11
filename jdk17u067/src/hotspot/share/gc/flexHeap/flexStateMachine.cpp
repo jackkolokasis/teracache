@@ -4,10 +4,10 @@
 #define BUFFER_SIZE 1024
 #define EPSILON 50
 
-void FlexStateMachine::state_no_action(fh_states *cur_state, fh_actions *cur_action,
-                                       double gc_time_ms, double io_time_ms) {
+void FlexSimpleStateMachine::state_no_action(fh_states *cur_state, fh_actions *cur_action,
+                                             double gc_time_ms, double io_time_ms) {
 
-  if (abs(io_time_ms - gc_time_ms) <= EPSILON) {
+  if (fabs(io_time_ms - gc_time_ms) <= EPSILON) {
     *cur_state = FHS_NO_ACTION;
     *cur_action = FH_NO_ACTION;
     return;
@@ -123,12 +123,14 @@ void FlexSimpleWaitStateMachine::fsm(fh_states *cur_state, fh_actions *cur_actio
     case FHS_NO_ACTION:
       state_no_action(cur_state, cur_action, gc_time_ms, io_time_ms);
       break;
+    default:
+    break;
   }
 }
 
 void FlexSimpleWaitStateMachine::state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
                                                        double gc_time_ms, double io_time_ms) {
-  if (abs(io_time_ms - gc_time_ms) <= EPSILON) {
+  if (fabs(io_time_ms - gc_time_ms) <= EPSILON) {
     *cur_state = FHS_WAIT_GROW;
     *cur_action =  FH_WAIT_AFTER_GROW;
     return;
@@ -152,7 +154,7 @@ void FlexSimpleWaitStateMachine::state_wait_after_grow(fh_states *cur_state, fh_
 
 void FlexSimpleWaitStateMachine::state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
                                                          double gc_time_ms, double io_time_ms) {
-  if (abs(io_time_ms - gc_time_ms) <= EPSILON) {
+  if (fabs(io_time_ms - gc_time_ms) <= EPSILON) {
     *cur_state = FHS_WAIT_SHRINK;
     *cur_action = FH_IOSLACK;
     return;
@@ -174,9 +176,11 @@ void FlexSimpleWaitStateMachine::state_wait_after_shrink(fh_states *cur_state, f
 
 void FlexFullOptimizedStateMachine::state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
                                                             double gc_time_ms, double io_time_ms) {
-  if (abs(io_time_ms - gc_time_ms) <= EPSILON) {
-    *cur_state = FHS_WAIT_SHRINK;
-    *cur_action = FH_IOSLACK;
+  if (fabs(io_time_ms - gc_time_ms) <= EPSILON) {
+    // *cur_state = FHS_WAIT_SHRINK;
+    // *cur_action = FH_IOSLACK;
+    *cur_state = FHS_NO_ACTION;
+    *cur_action =  FH_NO_ACTION;
     return;
   }
   
@@ -211,9 +215,11 @@ void FlexFullOptimizedStateMachine::state_wait_after_shrink(fh_states *cur_state
 void FlexFullOptimizedStateMachine::state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
                                                           double gc_time_ms, double io_time_ms) {
   
-  if (abs(io_time_ms - gc_time_ms) <= EPSILON) {
-    *cur_state = FHS_WAIT_GROW;
-    *cur_action =  FH_WAIT_AFTER_GROW;
+  if (fabs(io_time_ms - gc_time_ms) <= EPSILON) {
+    // *cur_state = FHS_WAIT_GROW;
+    // *cur_action =  FH_WAIT_AFTER_GROW;
+    *cur_state = FHS_NO_ACTION;
+    *cur_action =  FH_NO_ACTION;
     return;
   }
 
@@ -239,6 +245,466 @@ void FlexFullOptimizedStateMachine::state_wait_after_grow(fh_states *cur_state, 
   if (gc_time_ms > io_time_ms && !high_occupancy && under_h1_max_limit) {
     *cur_state = FHS_WAIT_GROW;
     *cur_action = FH_WAIT_AFTER_GROW;
+    return;
+  }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION; // remember to change that for optimization in S_GROW_H1
+}
+  
+void FlexStateMachineWithOptimalState::fsm(fh_states *cur_state,
+                                           fh_actions *cur_action,
+                                           double gc_time_ms,
+                                           double io_time_ms) {
+  switch (*cur_state) {
+    case FHS_WAIT_GROW:
+      state_wait_after_grow(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    case FHS_WAIT_SHRINK:
+      state_wait_after_shrink(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    case FHS_NO_ACTION:
+      state_no_action(cur_state, cur_action, gc_time_ms, io_time_ms);
+    case FHS_STABLE:
+      state_stable(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+  }
+}
+
+void FlexStateMachineWithOptimalState::state_wait_after_grow(fh_states *cur_state,
+                                                             fh_actions *cur_action,
+                                                             double gc_time_ms,
+                                                             double io_time_ms) {
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  size_t cur_size = old_gen->capacity_in_bytes();
+  size_t used_size = old_gen->used_in_bytes();
+  // Occupancy of the old generation is higher than 70%
+  bool high_occupancy = (((double)(used_size) / cur_size) > 0.70);
+  bool under_h1_max_limit = cur_size < old_gen->max_gen_size();
+  
+  if (gc_time_ms > io_time_ms && high_occupancy && under_h1_max_limit && is_delay_decreased) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    return;
+  }
+  
+  if (gc_time_ms > io_time_ms && !is_delay_decreased) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    return;
+  }
+
+  if (gc_time_ms > io_time_ms && !high_occupancy && under_h1_max_limit && is_delay_decreased) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_WAIT_AFTER_GROW;
+    return;
+  }
+
+  if (io_time_ms > gc_time_ms || !is_delay_decreased) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    return;
+  }
+  
+  // if (io_time_ms > gc_time_ms && is_delay_decreased) {
+  //   *cur_state = FHS_WAIT_SHRINK;
+  //   *cur_action = FH_SHRINK_HEAP;
+  //   return;
+  // }
+
+  // if (io_time_ms > gc_time_ms && !is_delay_decreased) {
+  //   *cur_state = FHS_STABLE;
+  //   *cur_action = FH_SHRINK_HEAP;
+  //   return;
+  // }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION; // remember to change that for optimization in S_GROW_H1
+}
+
+void FlexStateMachineWithOptimalState::state_wait_after_shrink(fh_states *cur_state,
+                                                               fh_actions *cur_action,
+                                                               double gc_time_ms,
+                                                               double io_time_ms) {
+
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  //size_t cur_rss = read_cgroup_mem_stats(false);
+  size_t cur_rss = read_process_anon_memory();
+  size_t cur_cache = read_cgroup_mem_stats(true);
+  bool ioslack = ((cur_rss + cur_cache) < (FlexDRAMLimit * 0.8));
+  
+  if (io_time_ms > gc_time_ms && ioslack && is_delay_decreased) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_IOSLACK;
+    return;
+  }
+
+  if (io_time_ms > gc_time_ms && !ioslack && is_delay_decreased) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    return;
+  }
+  
+  if (gc_time_ms > io_time_ms || !is_delay_decreased) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    return;
+  }
+  
+  // if (gc_time_ms > io_time_ms && is_delay_decreased) {
+  //   *cur_state = FHS_WAIT_GROW;
+  //   *cur_action = FH_GROW_HEAP;
+  //   return;
+  // }
+
+  // if (!is_delay_decreased) {
+  //   *cur_state = FHS_STABLE;
+  //   *cur_action = FH_GROW_HEAP;
+  //   return;
+  // }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION; // remember to change that for optimization in S_GROW_H1
+}
+
+void FlexStateMachineWithOptimalState::state_no_action(fh_states *cur_state,
+                                                       fh_actions *cur_action,
+                                                       double gc_time_ms,
+                                                       double io_time_ms) {
+
+  // The state mahcine will perform grow or shrink the heap. Thus we
+  // need to save the cur_delay as the delay before the next action.
+  // delay_before_action = cur_delay;
+  delay_before_action = gc_time_ms + io_time_ms;
+  
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  bool under_h1_max_limit = old_gen->capacity_in_bytes() < old_gen->max_gen_size();
+  if (gc_time_ms >= io_time_ms && under_h1_max_limit) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    return;
+  }
+
+  if (io_time_ms > gc_time_ms) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    return;
+  }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION;
+}
+
+void FlexStateMachineWithOptimalState::state_stable(fh_states *cur_state,
+                                                    fh_actions *cur_action,
+                                                    double gc_time_ms,
+                                                    double io_time_ms) {
+
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (is_delay_decreased) {
+    *cur_state = FHS_STABLE;
+    *cur_action = FH_NO_ACTION;
+    return;
+  }
+
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  bool under_h1_max_limit = old_gen->capacity_in_bytes() < old_gen->max_gen_size();
+  if (gc_time_ms >= io_time_ms && under_h1_max_limit) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    return;
+  }
+
+  if (io_time_ms > gc_time_ms) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    return;
+  }
+  
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION;
+}
+
+void FlexSimpleStateMachineOnlyDelay::fsm(fh_states *cur_state, fh_actions *cur_action,
+                                          double gc_time_ms, double io_time_ms) {
+  state_no_action(cur_state, cur_action, gc_time_ms, io_time_ms);
+}
+
+
+void FlexSimpleStateMachineOnlyDelay::state_no_action(fh_states *cur_state, fh_actions *cur_action,
+                                                      double gc_time_ms, double io_time_ms) {
+
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (is_delay_decreased) {
+    *cur_state = FHS_NO_ACTION;
+    *cur_action = last_action;
+    return;
+  }
+  
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  bool under_h1_max_limit = old_gen->capacity_in_bytes() < old_gen->max_gen_size();
+  if (!is_delay_decreased && last_action == FH_SHRINK_HEAP && under_h1_max_limit) {
+    *cur_state = FHS_NO_ACTION;
+    *cur_action = FH_GROW_HEAP;
+    last_action = FH_GROW_HEAP;
+    return;
+  }
+
+  if (!is_delay_decreased && last_action == FH_GROW_HEAP) {
+    *cur_state = FHS_NO_ACTION;
+    *cur_action = FH_SHRINK_HEAP;
+    last_action = FH_SHRINK_HEAP;
+    return;
+  }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION;
+}
+
+void FlexSimpleWaitStateMachineOnlyDelay::fsm(fh_states *cur_state,
+                                              fh_actions *cur_action,
+                                              double gc_time_ms,
+                                              double io_time_ms) {
+  switch (*cur_state) {
+    case FHS_WAIT_GROW:
+      state_wait_after_grow(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    case FHS_WAIT_SHRINK:
+      state_wait_after_shrink(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    case FHS_NO_ACTION:
+      state_no_action(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    default:
+    break;
+  }
+}
+
+void FlexSimpleWaitStateMachineOnlyDelay::state_no_action(fh_states *cur_state, fh_actions *cur_action,
+                                                          double gc_time_ms, double io_time_ms) {
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (is_delay_decreased) {
+    *cur_state = FHS_NO_ACTION;
+    *cur_action = FH_NO_ACTION;
+    return;
+  }
+
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  bool under_h1_max_limit = old_gen->capacity_in_bytes() < old_gen->max_gen_size();
+  if (!is_delay_decreased && last_action == FH_SHRINK_HEAP && under_h1_max_limit) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    last_action = FH_GROW_HEAP;
+    return;
+  }
+  
+  if (!is_delay_decreased && last_action == FH_GROW_HEAP) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    last_action = FH_SHRINK_HEAP;
+    return;
+  }
+  
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION;
+}
+
+void FlexSimpleWaitStateMachineOnlyDelay::state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
+                                                                double gc_time_ms, double io_time_ms) {
+  
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (!is_delay_decreased) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    last_action = FH_SHRINK_HEAP;
+    return;
+  }
+
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  size_t cur_size = old_gen->capacity_in_bytes();
+  size_t used_size = old_gen->used_in_bytes();
+  // Occupancy of the old generation is higher than 70%
+  bool high_occupancy = (((double)(used_size) / cur_size) > 0.70);
+  bool under_h1_max_limit = cur_size < old_gen->max_gen_size();
+  
+  if (high_occupancy && under_h1_max_limit) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    last_action = FH_GROW_HEAP;
+    return;
+  }
+  
+  if (!high_occupancy) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_WAIT_AFTER_GROW;
+    return;
+  }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION;
+}
+
+void FlexSimpleWaitStateMachineOnlyDelay::state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
+                                                                  double gc_time_ms, double io_time_ms) {
+  
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (!is_delay_decreased) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    last_action = FH_GROW_HEAP;
+    return;
+  }
+
+  size_t cur_rss = read_process_anon_memory();
+  size_t cur_cache = read_cgroup_mem_stats(true);
+  bool ioslack = ((cur_rss + cur_cache) < (FlexDRAMLimit * 0.8));
+
+  if (ioslack) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_IOSLACK;
+    return;
+  }
+
+  if (!ioslack) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    last_action = FH_SHRINK_HEAP;
+    return;
+  }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION; // remember to change that for optimization in S_GROW_H1
+}
+
+void FlexSimpleWaitStateMachineOnlyDelayWithOptimalState::fsm(fh_states *cur_state,
+                                                              fh_actions *cur_action,
+                                                              double gc_time_ms,
+                                                              double io_time_ms) {
+  switch (*cur_state) {
+    case FHS_WAIT_GROW:
+      state_wait_after_grow(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    case FHS_WAIT_SHRINK:
+      state_wait_after_shrink(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    case FHS_NO_ACTION:
+      state_no_action(cur_state, cur_action, gc_time_ms, io_time_ms);
+      break;
+    default:
+    break;
+  }
+}
+
+void FlexSimpleWaitStateMachineOnlyDelayWithOptimalState::state_no_action(fh_states *cur_state, fh_actions *cur_action,
+                                                                          double gc_time_ms, double io_time_ms) {
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (is_delay_decreased) {
+    *cur_state = FHS_NO_ACTION;
+    *cur_action = FH_NO_ACTION;
+    return;
+  }
+
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  bool under_h1_max_limit = old_gen->capacity_in_bytes() < old_gen->max_gen_size();
+  if (!is_delay_decreased && last_action == FH_SHRINK_HEAP && under_h1_max_limit) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    last_action = FH_GROW_HEAP;
+    return;
+  }
+  
+  if (!is_delay_decreased && last_action == FH_GROW_HEAP) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    last_action = FH_SHRINK_HEAP;
+    return;
+  }
+  
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION;
+}
+
+void FlexSimpleWaitStateMachineOnlyDelayWithOptimalState::state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
+                                                                                double gc_time_ms, double io_time_ms) {
+  
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (!is_delay_decreased) {
+    *cur_state = FHS_NO_ACTION;
+    *cur_action = FH_SHRINK_HEAP;
+    last_action = FH_SHRINK_HEAP;
+    return;
+  }
+
+  PSOldGen *old_gen = ParallelScavengeHeap::old_gen();
+  size_t cur_size = old_gen->capacity_in_bytes();
+  size_t used_size = old_gen->used_in_bytes();
+  // Occupancy of the old generation is higher than 70%
+  bool high_occupancy = (((double)(used_size) / cur_size) > 0.70);
+  bool under_h1_max_limit = cur_size < old_gen->max_gen_size();
+  
+  if (high_occupancy && under_h1_max_limit) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_GROW_HEAP;
+    last_action = FH_GROW_HEAP;
+    return;
+  }
+  
+  if (!high_occupancy) {
+    *cur_state = FHS_WAIT_GROW;
+    *cur_action = FH_WAIT_AFTER_GROW;
+    return;
+  }
+
+  *cur_state = FHS_NO_ACTION;
+  *cur_action = FH_NO_ACTION;
+}
+
+void FlexSimpleWaitStateMachineOnlyDelayWithOptimalState::state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
+                                                                  double gc_time_ms, double io_time_ms) {
+  
+  bool is_delay_decreased = (gc_time_ms + io_time_ms) < delay_before_action;
+  delay_before_action = gc_time_ms + io_time_ms;
+
+  if (!is_delay_decreased) {
+    *cur_state = FHS_NO_ACTION;
+    *cur_action = FH_GROW_HEAP;
+    last_action = FH_GROW_HEAP;
+    return;
+  }
+
+  size_t cur_rss = read_process_anon_memory();
+  size_t cur_cache = read_cgroup_mem_stats(true);
+  bool ioslack = ((cur_rss + cur_cache) < (FlexDRAMLimit * 0.8));
+
+  if (ioslack) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_IOSLACK;
+    return;
+  }
+
+  if (!ioslack) {
+    *cur_state = FHS_WAIT_SHRINK;
+    *cur_action = FH_SHRINK_HEAP;
+    last_action = FH_SHRINK_HEAP;
     return;
   }
 

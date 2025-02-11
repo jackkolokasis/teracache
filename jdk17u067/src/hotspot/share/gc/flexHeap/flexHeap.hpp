@@ -12,7 +12,7 @@
 #define FH_HIST_SIZE 1
 #define FH_GC_HIST_SIZE 1
 #define FH_NUM_ACTIONS 6
-#define FH_NUM_STATES 3
+#define FH_NUM_STATES 4
 #define FH_NAME_LEN 20
 
 class FlexHeap : public CHeapObj<mtInternal> {
@@ -20,13 +20,15 @@ private:
   static const uint64_t CYCLES_PER_SECOND;
   char state_name[FH_NUM_STATES][FH_NAME_LEN]; //< Define state names
   char action_name[FH_NUM_ACTIONS][FH_NAME_LEN]; //< Define state names
-  uint64_t window_start_time;         //< Window start time
+  double window_start_time;         //< Window start time
 
   double gc_time;                     //< Total gc time for the
                                       // interval of the window
   double interval;                    //< Interval of the window
 
   fh_actions cur_action;              //< Current action
+  
+  fh_actions prev_action;             //< Previous action
 
   fh_states cur_state;                //< Current state
 
@@ -59,12 +61,15 @@ private:
   bool should_grow_heap;              //< Indicate grow heap action
   bool should_shrink_heap;            //< Indicate shrink action
 
-
+  int num_major_gc;                   //< Counting the number of major GC cycles
+  
+  // double gc_time_accum_ms = 0;
+  
   // Check if the window limit exceed time
   bool is_window_limit_exeed();
 
   // Calculate ellapsed time
-  double ellapsed_time(uint64_t start_time, uint64_t end_time);
+  double ellapsed_time(double start_time, double end_time);
 
   // Find the average of the array elements
   double calc_avg_time(double *arr, int size);
@@ -84,16 +89,18 @@ private:
   FlexCPUUsage* init_cpu_usage_stats();
   
   // Calculation of the GC cost prediction.
-  double calculate_gc_cost(double gc_time_ms);
+  double calculate_gc_cost(double gc_time_ms, bool recalculate_intervals=false);
+  
+  // double calculate_gc_cost_accumulated(double gc_time_ms, bool recalculate_intervals=false);
 
   // Print states (for debugging and logging purposes)
-  void print_state_action();
+  void print_state_action(double avg_gc_time_ms, double avg_io_time_ms);
 
   // GrowH1 action
   void action_grow_heap(bool *need_full_gc);
   
   // ShrinkH1 action
-  void action_shrink_heap();
+  void action_shrink_heap(bool *need_full_gc);
 
   // Calculate the average of gc and io costs and return their values.
   // We use these values to determine the next actions.
@@ -110,6 +117,8 @@ private:
   
   // Set current time since last window
   void reset_counters();
+
+  double adaptive_resizing_step(bool should_grow);
 
 public:
   // Constructor

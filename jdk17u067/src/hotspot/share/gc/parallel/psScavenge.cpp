@@ -28,7 +28,6 @@
 #include "code/codeCache.hpp"
 #include "compiler/oopMap.hpp"
 #include "gc/flexHeap/flexHeap.hpp"
-#include "gc/teraHeap/teraPebs.hpp"
 #include "gc/parallel/parallelScavengeHeap.hpp"
 #include "gc/parallel/psAdaptiveSizePolicy.hpp"
 #include "gc/parallel/psClosure.inline.hpp"
@@ -239,12 +238,6 @@ bool PSScavenge::invoke() {
   assert(Thread::current() == (Thread*)VMThread::vm_thread(), "should be in vm thread");
   assert(!ParallelScavengeHeap::heap()->is_gc_active(), "not reentrant");
 
-  if (EnablePebs) {
-    Universe::teraPebs()->stop_perf();
-    // Universe::teraPebs()->print_total_loads();
-    Universe::teraPebs()->print_pebs_statistics();
-  }
-
   ParallelScavengeHeap* const heap = ParallelScavengeHeap::heap();
   PSAdaptiveSizePolicy* policy = heap->size_policy();
   IsGCActiveMark mark;
@@ -297,9 +290,6 @@ bool PSScavenge::invoke() {
   if (EnableFlexHeap)
     Universe::flexHeap()->set_last_minor_gc(os::elapsedTime());
   
-  if (EnablePebs)
-    Universe::teraPebs()->start_perf();
-
   return full_gc_done;
 }
 

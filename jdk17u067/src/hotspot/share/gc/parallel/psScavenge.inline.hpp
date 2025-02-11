@@ -93,17 +93,10 @@ inline bool PSScavenge::h2_should_trace(T* p) {
 		Universe::teraHeap()->group_regions((HeapWord *)p, cast_from_oop<HeapWord *>(obj));
 		return false;
 	}
-	else if (PSScavenge::is_obj_in_young(heap_oop)) {
-		Universe::teraHeap()->h2_push_backward_reference((void *)p, obj);
-		PSScavenge::card_table()->inline_write_ref_field_gc(p, obj, false);
-		return false;
-	}
-	else {
-		assert(Universe::teraHeap()->is_field_in_h2((void *)p), "Error");
-		Universe::teraHeap()->h2_push_backward_reference((void *)p, obj);
-		PSScavenge::card_table()->inline_write_ref_field_gc(p, obj, true);
-		return false;
-	}
+		
+  Universe::teraHeap()->h2_push_backward_reference((void *)p, obj);
+  PSScavenge::card_table()->inline_write_ref_field_gc(p, obj, !PSScavenge::is_obj_in_young(heap_oop));
+  return false;
 }
 
 #endif // TERA_MINOR_GC

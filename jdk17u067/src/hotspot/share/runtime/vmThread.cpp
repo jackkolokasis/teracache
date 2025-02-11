@@ -27,7 +27,6 @@
 #include "gc/flexHeap/flexHeap.hpp"
 #include "gc/shared/collectedHeap.hpp"
 #include "gc/teraHeap/teraHeap.hpp"
-#include "gc/teraHeap/teraPebs.hpp"
 #include "jfr/jfrEvents.hpp"
 #include "jfr/support/jfrThreadId.hpp"
 #include "logging/log.hpp"
@@ -186,13 +185,6 @@ void VMThread::run() {
     // Silent verification so as not to pollute normal output,
     // unless we really asked for it.
     Universe::verify();
-  }
-
-  if (EnablePebs) {
-    Universe::teraPebs()->stop_perf();
-    Universe::teraPebs()->stop_pebs_scanner_thread();
-    Universe::teraPebs()->print_pebs_statistics();
-    //Universe::teraPebs()->print_total_loads();
   }
 
   CompileBroker::set_should_block();

@@ -697,11 +697,15 @@
   product(bool, EnableFlexHeap, false,                                      \
             "Enable FlexHeap. Works only with ParallelScavenge Collector")  \
                                                                             \
-  product(bool, EnablePebs, false,                                          \
-            "Enable Pebs. Works only with ParallelScavenge Collector")      \
-                                                                            \
   product(bool, FlexHeapStatistics, false,                                  \
           "Print FlexHeap statistics")                                      \
+                                                                            \
+  product(bool, AdaptiveResizingStep, true,                                 \
+          "Enable adaptive resizing step")                                  \
+                                                                            \
+  product(double, ResizingStep, 0.05,                                       \
+          "Resizing step")                                                  \
+          range(0.05, 1)                                                    \
                                                                             \
   product(bool, TeraHeapStatistics, false,                                  \
           "Print TeraHeap statistics")                                      \

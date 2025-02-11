@@ -62,7 +62,6 @@
 #include "gc/shared/workerPolicy.hpp"
 #include "gc/shared/workgroup.hpp"
 #include "gc/teraHeap/teraDynamicResizingPolicy.hpp"
-#include "gc/teraHeap/teraPebs.hpp"
 #include "logging/log.hpp"
 #include "memory/iterator.inline.hpp"
 #include "memory/metaspaceUtils.hpp"
@@ -2102,11 +2101,6 @@ void PSParallelCompact::invoke(bool maximum_heap_compaction) {
   assert(Thread::current() == (Thread*)VMThread::vm_thread(),
          "should be in vm thread");
 
-  if (EnablePebs) {
-    Universe::teraPebs()->stop_perf();
-    Universe::teraPebs()->print_pebs_statistics();
-  }
-
   ParallelScavengeHeap* heap = ParallelScavengeHeap::heap();
   GCCause::Cause gc_cause = heap->gc_cause();
   assert(!heap->is_gc_active(), "not reentrant");
@@ -2167,8 +2161,6 @@ void PSParallelCompact::invoke(bool maximum_heap_compaction) {
   if (EnableFlexHeap)
     Universe::flexHeap()->set_last_minor_gc(os::elapsedTime());
 #endif
-  if (EnablePebs)
-    Universe::teraPebs()->start_perf();
 }
 
 // This method contains no policy. You should probably

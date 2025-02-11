@@ -14,6 +14,7 @@ enum fh_states {
   FHS_NO_ACTION,                    //< No action state
   FHS_WAIT_SHRINK,                  //< After shrinking h1 wait for the effect
   FHS_WAIT_GROW,                    //< After growing h1 wait for the effect
+  FHS_STABLE
 };
 
 #endif // SHARE_GC_FLEXHEAP_FLEXENUMS_HPP
