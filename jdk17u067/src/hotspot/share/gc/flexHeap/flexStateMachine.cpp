@@ -71,8 +71,14 @@ size_t FlexStateMachine::read_process_anon_memory() {
 
 // Read the memory statistics for the cgroup
 size_t FlexStateMachine::read_cgroup_mem_stats(bool read_page_cache) {
-  // Define the path to the memory.stat file
-  const char* file_path = "/sys/fs/cgroup/memory/memlim/memory.stat";
+  static int is_v2 = -1;  // Static variable to cache cgroup version detection
+  if (is_v2 == -1) {
+    struct stat buffer;
+    is_v2 = (stat("/sys/fs/cgroup/cgroup.controllers", &buffer) == 0);
+  }
+
+  // Determine memory.stat path
+  const char* file_path = is_v2 ? "/sys/fs/cgroup/memlim/memory.stat" : "/sys/fs/cgroup/memory/memlim/memory.stat";
 
   // Open the file for reading
   FILE* file = fopen(file_path, "r");
@@ -84,18 +90,12 @@ size_t FlexStateMachine::read_cgroup_mem_stats(bool read_page_cache) {
 
   char line[BUFFER_SIZE];
   size_t res = 0;
+  const char* search_key = read_page_cache ? (is_v2 ? "file" : "cache") : (is_v2 ? "anon" : "rss");
 
-  // Read each line in the file
+  // Read file and find the required value
   while (fgets(line, sizeof(line), file)) {
-    if (read_page_cache && strncmp(line, "cache", 5) == 0) {
-      // Extract the cache value
-      res = atoll(line + 6);
-      break;
-    }
-
-    if (strncmp(line, "rss", 3) == 0) {
-      // Extract the rss value
-      res = atoll(line + 4);
+    if (strncmp(line, search_key, strlen(search_key)) == 0) { // Match the key at start
+      res = atoll(line + strlen(search_key) + 1); // Extract the value
       break;
     }
   }
