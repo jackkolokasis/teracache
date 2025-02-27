@@ -30,65 +30,65 @@ public:
   size_t read_process_anon_memory();
 };
 
-class FlexSimpleStateMachine : public FlexStateMachine {
-public:
-  FlexSimpleStateMachine() {
-    tty->print_cr("Resizing Policy = FlexSimpleStateMacine\n");
-    tty->flush();
-  }
-  void fsm(fh_states *cur_state, fh_actions *cur_action, double gc_time_ms,
-           double io_time_ms);
-  
-  void state_no_action(fh_states *cur_state, fh_actions *cur_action,
-                       double gc_time_ms, double io_time_ms);
+// class FlexSimpleStateMachine : public FlexStateMachine {
+// public:
+//   FlexSimpleStateMachine() {
+//     tty->print_cr("Resizing Policy = FlexSimpleStateMacine\n");
+//     tty->flush();
+//   }
+//   void fsm(fh_states *cur_state, fh_actions *cur_action, double gc_time_ms,
+//            double io_time_ms);
+//   
+//   void state_no_action(fh_states *cur_state, fh_actions *cur_action,
+//                        double gc_time_ms, double io_time_ms);
 
-  void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
-                             double gc_time_ms, double io_time_ms) {
-    return;
-  }
+//   void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
+//                              double gc_time_ms, double io_time_ms) {
+//     return;
+//   }
 
-  void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
-                               double gc_time_ms, double io_time_ms) {
-    return;
-  }
-  
-  virtual void state_stable(fh_states *cur_state, fh_actions *cur_action,
-                            double gc_time_ms, double io_time_ms) {
-    return;
-  }
+//   void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
+//                                double gc_time_ms, double io_time_ms) {
+//     return;
+//   }
+//   
+//   virtual void state_stable(fh_states *cur_state, fh_actions *cur_action,
+//                             double gc_time_ms, double io_time_ms) {
+//     return;
+//   }
 
-};
+// };
 
-class FlexSimpleWaitStateMachine : public FlexSimpleStateMachine {
-public:
-  FlexSimpleWaitStateMachine() {
-    tty->print_cr("Resizing Policy = FlexSimpleWaitStateMacine\n");
-    tty->flush();
-  }
+// class FlexSimpleWaitStateMachine : public FlexSimpleStateMachine {
+// public:
+//   FlexSimpleWaitStateMachine() {
+//     tty->print_cr("Resizing Policy = FlexSimpleWaitStateMacine\n");
+//     tty->flush();
+//   }
 
-  void fsm(fh_states *cur_state, fh_actions *cur_action, double gc_time_ms,
-           double io_time_ms);
+//   void fsm(fh_states *cur_state, fh_actions *cur_action, double gc_time_ms,
+//            double io_time_ms);
 
-  void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
-                             double gc_time_ms, double io_time_ms);
+//   void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
+//                              double gc_time_ms, double io_time_ms);
 
-  void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
-                               double gc_time_ms, double io_time_ms);
-};
+//   void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
+//                                double gc_time_ms, double io_time_ms);
+// };
 
-class FlexFullOptimizedStateMachine : public FlexSimpleWaitStateMachine {
-public:
-  FlexFullOptimizedStateMachine() {
-    tty->print_cr("Resizing Policy = FlexFullOptimizedStateMachine\n");
-    tty->flush();
-  }
-  
-  void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
-                             double gc_time_ms, double io_time_ms);
+// class FlexFullOptimizedStateMachine : public FlexSimpleWaitStateMachine {
+// public:
+//   FlexFullOptimizedStateMachine() {
+//     tty->print_cr("Resizing Policy = FlexFullOptimizedStateMachine\n");
+//     tty->flush();
+//   }
+//   
+//   void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
+//                              double gc_time_ms, double io_time_ms);
 
-  void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
-                             double gc_time_ms, double io_time_ms);
-};
+//   void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
+//                              double gc_time_ms, double io_time_ms);
+// };
 
 class FlexStateMachineWithOptimalState : public FlexStateMachine {
 private:
@@ -118,38 +118,38 @@ public:
                     double gc_time_ms, double io_time_ms);
 };
 
-class FlexSimpleStateMachineOnlyDelay : public FlexStateMachine {
-private:
-  double delay_before_action = 0;         // Sum of gctime and iowait time before the last action
-  fh_actions last_action = FH_GROW_HEAP;
+// class FlexSimpleStateMachineOnlyDelay : public FlexStateMachine {
+// private:
+//   double delay_before_action = 0;         // Sum of gctime and iowait time before the last action
+//   fh_actions last_action = FH_GROW_HEAP;
 
-public:
-  FlexSimpleStateMachineOnlyDelay() {
-    tty->print_cr("Resizing Policy = FlexSimpleStateMacineOnlyDelay\n");
-    tty->flush();
-  }
-  void fsm(fh_states *cur_state, fh_actions *cur_action, double gc_time_ms,
-           double io_time_ms);
-  
-  void state_no_action(fh_states *cur_state, fh_actions *cur_action,
-                       double gc_time_ms, double io_time_ms);
+// public:
+//   FlexSimpleStateMachineOnlyDelay() {
+//     tty->print_cr("Resizing Policy = FlexSimpleStateMacineOnlyDelay\n");
+//     tty->flush();
+//   }
+//   void fsm(fh_states *cur_state, fh_actions *cur_action, double gc_time_ms,
+//            double io_time_ms);
+//   
+//   void state_no_action(fh_states *cur_state, fh_actions *cur_action,
+//                        double gc_time_ms, double io_time_ms);
 
-  void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
-                             double gc_time_ms, double io_time_ms) {
-    return;
-  }
+//   void state_wait_after_grow(fh_states *cur_state, fh_actions *cur_action,
+//                              double gc_time_ms, double io_time_ms) {
+//     return;
+//   }
 
-  void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
-                               double gc_time_ms, double io_time_ms) {
-    return;
-  }
-  
-  virtual void state_stable(fh_states *cur_state, fh_actions *cur_action,
-                            double gc_time_ms, double io_time_ms) {
-    return;
-  }
+//   void state_wait_after_shrink(fh_states *cur_state, fh_actions *cur_action,
+//                                double gc_time_ms, double io_time_ms) {
+//     return;
+//   }
+//   
+//   virtual void state_stable(fh_states *cur_state, fh_actions *cur_action,
+//                             double gc_time_ms, double io_time_ms) {
+//     return;
+//   }
 
-};
+// };
 
 
 class FlexSimpleWaitStateMachineOnlyDelay : public FlexStateMachine {

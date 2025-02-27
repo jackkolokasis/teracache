@@ -63,6 +63,12 @@ private:
 
   int num_major_gc;                   //< Counting the number of major GC cycles
   
+#ifdef TERA_CONTROLLER
+  bool controller_resize_request;     //< Cotroller request for resize
+
+  long new_mem_budget;            //< Current DRAM Budget
+#endif
+  
   // double gc_time_accum_ms = 0;
   
   // Check if the window limit exceed time
@@ -202,6 +208,13 @@ public:
   bool need_to_shrink_heap() {
     return should_shrink_heap;
   }
+
+#ifdef TERA_CONTROLLER
+  bool set_controller_resize_request(long mem_budget) {
+    controller_resize_request = true;
+    new_mem_budget = mem_budget;
+  }
+#endif
 };
 
 #endif // SHARE_GC_FLEXHEAP_FLEXHEAP_HPP

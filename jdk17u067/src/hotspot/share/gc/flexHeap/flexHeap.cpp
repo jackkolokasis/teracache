@@ -20,35 +20,41 @@ FlexCPUUsage* FlexHeap::init_cpu_usage_stats() {
 FlexStateMachine* FlexHeap::init_state_machine_policy() {
   switch (FlexResizingPolicy) {
     case 1:
-      // to be deleted
-      return new FlexSimpleWaitStateMachine();
-    case 2:
-      // to be deleted
-      return new FlexFullOptimizedStateMachine(); 
-    case 3:
       // Use it for evaluatio
       return new FlexStateMachineWithOptimalState();
-    case 4:
-      // to be deleted
-      return new FlexSimpleStateMachineOnlyDelay();
-    case 5:
+    case 2:
       // Keep only five and six and the rest remove them
       // Use it for evaluation
       return new FlexSimpleWaitStateMachineOnlyDelay();
-    case 6:
+    case 3:
       // Use it for evaluatio
       return new FlexSimpleWaitStateMachineOnlyDelayWithOptimalState();
     default:
       break;
   }
   
-  return new FlexSimpleStateMachine();
+  return new FlexSimpleWaitStateMachineOnlyDelay();
 }
 
 // We use this function to take decision in case of minor GC which
 // happens before a major gc.
 void FlexHeap::dram_repartition(bool *need_full_gc) {
   double avg_gc_time_ms, avg_io_time_ms;
+
+#ifdef TERA_CONTROLLER
+  if (controller_resize_request) {
+    if (new_mem_budget > FlexDRAMLimit) {
+      FlexDRAMLimit = new_mem_budget;
+    }
+
+    if (new_mem_budget < FlexDRAMLimit) {
+      FlexDRAMLimit = new_mem_budget;
+      action_shrink_heap(need_full_gc);
+      prev_action = cur_action;
+      reset_counters();
+    }
+  }
+#endif
 
   calculate_gc_io_costs(&avg_gc_time_ms, &avg_io_time_ms);
 
@@ -425,20 +431,3 @@ double FlexHeap::adaptive_resizing_step(bool should_grow) {
   shrink_step = (cur_action == prev_action) ? MAX(shrink_step - 0.1, 0.2) : (1 - ResizingStep); 
   return (prev_action == FH_GROW_HEAP) ? (1 - grow_step) : shrink_step;
 }
-
-// double FlexHeap::adaptive_resizing_step(bool should_grow) {
-//   static double grow_step = ResizingStep;
-//   static double shrink_step = (1 - ResizingStep);
-
-//   if (!AdaptiveResizingStep) {
-//     return should_grow ? ResizingStep : (1 - ResizingStep);
-//   }
-
-//   if (should_grow) {
-//     grow_step = (cur_action == prev_action) ? MIN(grow_step + 0.1, 0.8) : ResizingStep; 
-//     return grow_step;
-//   }
-
-//   shrink_step = (cur_action == prev_action) ? MAX(shrink_step - 0.1, 0.2) : (1 - ResizingStep); 
-//   return shrink_step;
-// }
